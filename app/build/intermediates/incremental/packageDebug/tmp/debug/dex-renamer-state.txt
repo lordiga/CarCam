@@ -1,4 +1,4 @@
-#Sun Apr 29 21:14:32 EDT 2018
-base.0=C\:\\Users\\Hieu Bui\\AndroidStudioProjects\\CarCam\\app\\build\\intermediates\\transforms\\dexMerger\\debug\\0
+#Tue May 01 02:59:00 EDT 2018
+base.0=E\:\\StudioProjects\\CarCam\\app\\build\\intermediates\\transforms\\dexMerger\\debug\\0
 path.0=classes.dex
 renamed.0=classes.dex
