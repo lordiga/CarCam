@@ -48,15 +48,18 @@ public class MainCam extends Activity {
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
     static boolean mBound = false;
-    static Timer mtimer;
-    static TimerTask mtimerTask;
+    static Timer mTimer;
+    static TimerTask mTimerTask;
+    static Timer mServiceTimer;
+    static TimerTask mServiceTimerTask;
+    static boolean isServiceRun = false;
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
 
         @Override
         public void onServiceConnected(ComponentName className,
                                        IBinder service) {
-            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            // We've bound to CameraService, cast the IBinder and get CameraService instance
             CameraService.CameraBinder binder = (CameraService.CameraBinder) service;
             mCameraService = binder.getService();
             mBound = true;
@@ -82,9 +85,13 @@ public class MainCam extends Activity {
         FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
         preview.addView(mPreview);
 
-        // Initiate and start timer
-        initialTimer();
-        startTimer();
+        //Binding CameraService to main thread
+        // Bind to LocalService
+        Intent intent = new Intent(this, CameraService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+
+        // Initiate and start service timer for the first run
+        startServiceTimer();
 
         // Add a listener to the Capture button
         Button captureButton = (Button) findViewById(R.id.button_capture);
@@ -92,35 +99,49 @@ public class MainCam extends Activity {
             new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    if (isRecording) {
+                    if (isRecording && !isServiceRun) {
+                        // Stop camera when service is not runing but camera is running
                         // stop recording and release camera
                         stopCamera();
                         // stop the timer
                         stopTimer();
                         // inform the user that recording has stopped
-                        setCaptureButtonText("Capture");
+                        setCaptureButtonText((Button) findViewById(R.id.button_capture),"Capture");
                     }
-                    else {
+                    else if(!isRecording && !isServiceRun) {
+                        // Only start recording when service is not running and camera is not running
                         if(startCamera()){
                             // inform the user that recording has started
-                            setCaptureButtonText("Stop");
+                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
                             startTimer();
                         }else{
                             Toast.makeText(MainCam.this,"Failed to acquire Camera",Toast.LENGTH_SHORT).show();
                         }
+                    }else{
+                        Toast.makeText(MainCam.this,"Failed to acquire Camera or Camera service is running",Toast.LENGTH_SHORT).show();
                     }
                 }
             }
         );
 
-        Button startService = (Button) findViewById(R.id.button_service);
-        startService.setOnClickListener(
+        Button serviceButton = (Button) findViewById(R.id.button_service);
+        serviceButton.setOnClickListener(
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
-                        startCameraService();
-                        startTimer();
-                        setCaptureButtonText("Stop");
+                        if((!isServiceRun) && (!isRecording)) {
+                            // Only start the service if it's not running
+                            // If it's running then don't do anything
+                            startCameraService();
+                            startServiceTimer();
+                            setCaptureButtonText((Button) findViewById(R.id.button_service), "Stop Service");
+                        }else if( (isServiceRun) && (isRecording)) {
+                            // If service is runnung and it's recording
+                            // We will stop the service
+                            stopCameraService();
+                            stopServiceTimer();
+                            setCaptureButtonText((Button) findViewById(R.id.button_service), "Start Service");
+                        }
                     }
                 }
         );
@@ -247,56 +268,8 @@ public class MainCam extends Activity {
         }
     }
 
-    public void setCaptureButtonText(String newText) {
-        Button captureButton = (Button) findViewById(R.id.button_capture);
-        captureButton.setText(newText);
-    }
-
-    public void initialTimer() {
-        // Set up timer and timertask
-        mtimer = new Timer();
-        mtimerTask = new TimerTask() {
-            @Override
-            public void run() {
-                //task to run for timmer.
-                // This task will first check if camera is in used?
-                // If yes, it will save stop the cam, save to file and start a new service
-                Log.d("TimerTask","Starting timer");
-                if(isRecording){
-                    stopCamera();
-                    Log.d("TimerTask","stop camera in timer task");
-                    // inform the user that recording has stopped
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            setCaptureButtonText("Capture");
-                        }
-                    });
-                    Intent intent = new Intent(MainCam.this, CameraService.class);
-                    //bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startService(intent);
-                    Log.d("TimerTask","Start camera in timer task");
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            setCaptureButtonText("Stop");
-                        }
-                    });
-                }
-
-            }
-        };
-
-    }
-
-    public void stopCamera() {
-        // Stop camera
-        // stop recording and release camera
-        mMediaRecorder.stop();  // stop the recording
-        mCamera.lock();         // take camera access back from MediaRecorder
-        stopService(new Intent(MainCam.this, CameraService.class));
-        isRecording = false;
+    public void setCaptureButtonText(Button button, String newText) {
+        button.setText(newText);
     }
 
     public boolean startCamera() {
@@ -315,19 +288,112 @@ public class MainCam extends Activity {
         }
     }
 
-    public void startCameraService() {
-        Intent intent = new Intent(MainCam.this, CameraService.class);
-        //bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startService(intent);
-        Toast.makeText(MainCam.this,"Starting Service",Toast.LENGTH_SHORT).show();
+    public void stopCamera() {
+        // Stop camera
+        // stop recording and release camera
+        mMediaRecorder.stop();  // stop the recording
+        mCamera.lock();         // take camera access back from MediaRecorder
+        isRecording = false;
+    }
+
+    public void startTimer() {
+        initialTimer();
+        mTimer.schedule(mTimerTask, 1200000, 1200000); //
     }
 
     public void stopTimer() {
         Toast.makeText(MainCam.this,"Stopping Timer Task",Toast.LENGTH_LONG).show();
-        mtimer.cancel();
+        mTimer.cancel();
     }
-    public void startTimer() {
-        mtimer.schedule(mtimerTask, 1200000, 1200000); //
+
+    public void initialTimer() {
+        // Set up timer and timertask
+        mTimer = new Timer();
+        mTimerTask = new TimerTask() {
+            @Override
+            public void run() {
+                //task to run for timmer.
+                // This task will first check if camera is in used?
+                // If yes, it will save stop the cam, save to file and start a new service
+                Log.d("TimerTask","Starting timer");
+                if(isRecording){
+                    stopCamera();
+                    Log.d("TimerTask","stop camera in timer task");
+                    // inform the user that recording has stopped
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Capture");
+                        }
+                    });
+                    startCamera();
+                    Log.d("TimerTask","Start camera in timer task");
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
+                        }
+                    });
+                }
+
+            }
+        };
+    }
+
+    public void startCameraService() {
+        mCameraService.startCamera();
+        isServiceRun = true;
+        isRecording = true;
+    }
+
+    public void stopCameraService() {
+        mCameraService.stopCamera();
+        isRecording = false;
+        isServiceRun = false;
+    }
+
+    public void startServiceTimer(){
+        initialServiceTimer();
+        mServiceTimer.schedule(mServiceTimerTask, 1200000,1200000);
+    }
+
+    public void stopServiceTimer() {
+        mServiceTimer.cancel();
+    }
+
+    public void initialServiceTimer() {
+        // Set up timer and timertask
+        mServiceTimer = new Timer();
+        mServiceTimerTask = new TimerTask() {
+            @Override
+            public void run() {
+                //task to run for timmer.
+                // This task will first check if camera is in used?
+                // If yes, it will save stop the cam, save to file and start a new service
+                Log.d("TimerTask","Starting service timer");
+                if(isRecording && isServiceRun){
+                    // Stop the camera when service is running and using camera
+                    stopCameraService();
+                    Log.d("TimerTask","stop camera in service timer task");
+                    // inform the user that recording has stopped
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            setCaptureButtonText((Button) findViewById(R.id.button_service),"Start Service");
+                        }
+                    });
+
+                    Log.d("TimerTask","Start camera in service timer task");
+                    startCameraService();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            setCaptureButtonText((Button) findViewById(R.id.button_service),"Stop Service");
+                        }
+                    });
+                }
+
+            }
+        };
     }
 }
