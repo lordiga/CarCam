@@ -25,7 +25,9 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Timer;
@@ -53,6 +55,8 @@ public class MainCam extends Activity {
     static Timer mServiceTimer;
     static TimerTask mServiceTimerTask;
     static boolean isServiceRun = false;
+    static int recordDuration;
+    static int maxSize;
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
 
@@ -90,8 +94,12 @@ public class MainCam extends Activity {
         Intent intent = new Intent(this, CameraService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 
+        //Initiate recorduration and maxsize
+        recordDuration = 10;
+        maxSize = 4;
+
         // Initiate and start service timer for the first run
-        startServiceTimer();
+        startServiceTimer(recordDuration);
 
         // Add a listener to the Capture button
         Button captureButton = (Button) findViewById(R.id.button_capture);
@@ -113,7 +121,7 @@ public class MainCam extends Activity {
                         if(startCamera()){
                             // inform the user that recording has started
                             setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
-                            startTimer();
+                            startTimer(recordDuration);
                         }else{
                             Toast.makeText(MainCam.this,"Failed to acquire Camera",Toast.LENGTH_SHORT).show();
                         }
@@ -133,7 +141,7 @@ public class MainCam extends Activity {
                             // Only start the service if it's not running
                             // If it's running then don't do anything
                             startCameraService();
-                            startServiceTimer();
+                            startServiceTimer(recordDuration);
                             setCaptureButtonText((Button) findViewById(R.id.button_service), "Stop Service");
                         }else if( (isServiceRun) && (isRecording)) {
                             // If service is runnung and it's recording
@@ -241,7 +249,8 @@ public class MainCam extends Activity {
                 return null;
             }
         }
-
+        // Sorting Save directory and delete file if needed
+        sortSaveDir(mediaStorageDir,maxSize,recordDuration);
         // Create a media file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         File mediaFile;
@@ -250,7 +259,7 @@ public class MainCam extends Activity {
                     "IMG_"+ timeStamp + ".jpg");
         } else if(type == MEDIA_TYPE_VIDEO) {
             mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-                    "Sample_vid"+ ".mp4");
+                    "VID_"+timeStamp+".mp4");
         } else {
             return null;
         }
@@ -258,10 +267,23 @@ public class MainCam extends Activity {
         return mediaFile;
     }
 
-    public void sortSaveDir(File mainDir) {
+    static public void sortSaveDir(File mainDir, int maxSize, int recordDuration) {
+        // Size will be in Gb and time to 1000 to get to mb.
+        // The reference point to determine how many file can be store is 20 min ~ 400 mB file
+        // Duration will be determin in minute
+        // Number of file = (maxSize * 1000) / (recordDuration * 400 / 20)
+
+        int numberOfFile = (maxSize * 1000) / (recordDuration * 400 / 20);
+
         if(mainDir.exists()) {
             // If Maindir exists. we start checking
             File[] listFiles =  mainDir.listFiles();
+            Arrays.sort(listFiles);
+            if(listFiles.length >= numberOfFile) {
+                // We delete the first file
+                listFiles[listFiles.length - 1].delete();
+            }else
+                return;
         }else{
             // If mainDir doesn't exists do nothing
             return;
@@ -296,9 +318,9 @@ public class MainCam extends Activity {
         isRecording = false;
     }
 
-    public void startTimer() {
+    public void startTimer(int duration) {
         initialTimer();
-        mTimer.schedule(mTimerTask, 1200000, 1200000); //
+        mTimer.schedule(mTimerTask, duration*60*1000, duration*60*1000); //
     }
 
     public void stopTimer() {
@@ -352,9 +374,9 @@ public class MainCam extends Activity {
         isServiceRun = false;
     }
 
-    public void startServiceTimer(){
+    public void startServiceTimer(int duration){
         initialServiceTimer();
-        mServiceTimer.schedule(mServiceTimerTask, 1200000,1200000);
+        mServiceTimer.schedule(mServiceTimerTask, duration*60*1000,duration*60*1000);
     }
 
     public void stopServiceTimer() {
