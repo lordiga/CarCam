@@ -1,17 +1,23 @@
 package com.example.hieubui.carcam;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.hardware.Camera;
+import android.location.Location;
+import android.location.LocationManager;
 import android.media.CamcorderProfile;
+import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.IBinder;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -21,6 +27,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -29,7 +36,9 @@ import java.lang.reflect.Array;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Formatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -40,7 +49,7 @@ import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
  * An example full-screen activity that shows and hides the system UI (i.e.
  * status bar and navigation/system bar) with user interaction.
  */
-public class MainCam extends Activity {
+public class MainCam extends Activity implements IBaseGpsListener {
 
     static Camera mCamera;
     static CameraPreview mPreview;
@@ -57,6 +66,9 @@ public class MainCam extends Activity {
     static boolean isServiceRun = false;
     static int recordDuration;
     static int maxSize;
+    static int maxSpeed;
+    static int alarmCount;
+    static int maxAlarmCount;
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
 
@@ -74,6 +86,11 @@ public class MainCam extends Activity {
             mBound = false;
         }
     };
+    // GPS and speedometer object
+    LocationManager locationManager;
+    // Sound alarm object
+    MediaPlayer mp;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -94,10 +111,29 @@ public class MainCam extends Activity {
         Intent intent = new Intent(this, CameraService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 
-        //Initiate recorduration and maxsize
+        //Initiate alarm and maxspeed
+        mp = MediaPlayer.create(this, R.raw.alarm);
+        maxSpeed =78 ;
+        alarmCount = 0;
+        maxAlarmCount = 5;
+        //Initiate GPS and Speedometer
+        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
+        this.updateSpeed(null);
+
+        //Initiate recorduration and maxsize and max speed
         recordDuration = 10;
         maxSize = 4;
-
         // Initiate and start service timer for the first run
         startServiceTimer(recordDuration);
 
@@ -163,6 +199,44 @@ public class MainCam extends Activity {
 
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        // TODO Auto-generated method stub
+        if(location != null)
+        {
+            CLocation myLocation = new CLocation(location);
+            this.updateSpeed(myLocation);
+        }
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void onGpsStatusChanged(int event) {
+        // TODO Auto-generated method stub
+
+    }
 
 /* Method Definition*/
     /** A safe way to get an instance of the Camera object. */
@@ -269,11 +343,11 @@ public class MainCam extends Activity {
 
     static public void sortSaveDir(File mainDir, int maxSize, int recordDuration) {
         // Size will be in Gb and time to 1000 to get to mb.
-        // The reference point to determine how many file can be store is 20 min ~ 400 mB file
+        // The reference point to determine how many file can be store is 10 min ~ 300 mB file
         // Duration will be determin in minute
-        // Number of file = (maxSize * 1000) / (recordDuration * 400 / 20)
+        // Number of file = (maxSize * 1000) / (recordDuration * 300 / 10)
 
-        int numberOfFile = (maxSize * 1000) / (recordDuration * 400 / 20);
+        int numberOfFile = (maxSize * 1000) / (recordDuration * 300 / 10);
 
         if(mainDir.exists()) {
             // If Maindir exists. we start checking
@@ -417,5 +491,30 @@ public class MainCam extends Activity {
 
             }
         };
+    }
+
+    private void updateSpeed(CLocation location) {
+        // TODO Auto-generated method stub
+        float nCurrentSpeed = 0;
+
+        if(location != null)
+        {
+            nCurrentSpeed = location.getSpeed();
+        }
+
+        Formatter fmt = new Formatter(new StringBuilder());
+        fmt.format(Locale.US, "%5.1f", nCurrentSpeed);
+        String strCurrentSpeed = fmt.toString();
+        strCurrentSpeed = strCurrentSpeed.replace(' ', '0');
+        double currentSpeed = Double.parseDouble(strCurrentSpeed);
+        if((currentSpeed >= maxSpeed) && (alarmCount < maxAlarmCount)) {
+            alarmCount++;
+            mp.start();
+        }else
+            alarmCount = 0;
+        String strUnits = "mph";
+
+        TextView txtCurrentSpeed = (TextView) this.findViewById(R.id.txtCurrentSpeed);
+        txtCurrentSpeed.setText(strCurrentSpeed + " " + strUnits);
     }
 }
