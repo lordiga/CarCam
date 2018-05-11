@@ -3,9 +3,11 @@ package com.example.hieubui.carcam;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
@@ -15,6 +17,7 @@ import android.media.CamcorderProfile;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Environment;
 import android.os.IBinder;
 import android.support.v4.app.ActivityCompat;
@@ -69,6 +72,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
     static int maxSpeed;
     static int alarmCount;
     static int maxAlarmCount;
+    static Camera.Parameters params;
+    IntentFilter ifilter;
+    BroadcastReceiver smsReceiver;
+
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
 
@@ -99,6 +106,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
         // Create an instance of Camera
         mCamera = getCameraInstance();
+        if(mCamera != null) {
+            params = mCamera.getParameters();
+            initialCamera(params, mCamera);
+        }
         mMediaRecorder = new MediaRecorder();
 
         // Create our Preview view and set it as the content of our activity.
@@ -113,7 +124,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
         //Initiate alarm and maxspeed
         mp = MediaPlayer.create(this, R.raw.alarm);
-        maxSpeed =78 ;
+        maxSpeed =80;
         alarmCount = 0;
         maxAlarmCount = 5;
         //Initiate GPS and Speedometer
@@ -140,32 +151,32 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // Add a listener to the Capture button
         Button captureButton = (Button) findViewById(R.id.button_capture);
         captureButton.setOnClickListener(
-            new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (isRecording && !isServiceRun) {
-                        // Stop camera when service is not runing but camera is running
-                        // stop recording and release camera
-                        stopCamera();
-                        // stop the timer
-                        stopTimer();
-                        // inform the user that recording has stopped
-                        setCaptureButtonText((Button) findViewById(R.id.button_capture),"Capture");
-                    }
-                    else if(!isRecording && !isServiceRun) {
-                        // Only start recording when service is not running and camera is not running
-                        if(startCamera()){
-                            // inform the user that recording has started
-                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
-                            startTimer(recordDuration);
-                        }else{
-                            Toast.makeText(MainCam.this,"Failed to acquire Camera",Toast.LENGTH_SHORT).show();
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        if (isRecording && !isServiceRun) {
+                            // Stop camera when service is not runing but camera is running
+                            // stop recording and release camera
+                            stopCamera();
+                            // stop the timer
+                            stopTimer();
+                            // inform the user that recording has stopped
+                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Capture");
                         }
-                    }else{
-                        Toast.makeText(MainCam.this,"Failed to acquire Camera or Camera service is running",Toast.LENGTH_SHORT).show();
+                        else if(!isRecording && !isServiceRun) {
+                            // Only start recording when service is not running and camera is not running
+                            if(startCamera()){
+                                // inform the user that recording has started
+                                setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
+                                startTimer(recordDuration);
+                            }else{
+                                Toast.makeText(MainCam.this,"Failed to acquire Camera",Toast.LENGTH_SHORT).show();
+                            }
+                        }else{
+                            Toast.makeText(MainCam.this,"Failed to acquire Camera or Camera service is running",Toast.LENGTH_SHORT).show();
+                        }
                     }
                 }
-            }
         );
 
         Button serviceButton = (Button) findViewById(R.id.button_service);
@@ -189,6 +200,30 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     }
                 }
         );
+
+        // Create an intent filter to recieve batery charge event
+        ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        BroadcastReceiver smsReceiver = new BroadcastReceiver(){
+
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                boolean usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
+                boolean acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
+                if(usbCharge || acCharge ){
+                    Toast.makeText(MainCam.this,"Phone is charging",Toast.LENGTH_LONG).show();
+                    /*if(!MainCam.isServiceRun && !MainCam.isRecording && MainCam.mCameraService != null) {
+                        // This check will make sure the first run will not kick off the service as
+                        // it has been taken care
+                        startCameraService();
+                        startServiceTimer(recordDuration);
+                        setCaptureButtonText((Button) findViewById(R.id.button_service), "Stop Service");
+                    }*/
+                }
+
+            }
+        };
+        Intent batteryStatus = this.registerReceiver(smsReceiver, ifilter);
 
     }
 
@@ -238,7 +273,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     }
 
-/* Method Definition*/
+    /* Method Definition*/
     /** A safe way to get an instance of the Camera object. */
     public static Camera getCameraInstance(){
         Camera c = null;
@@ -249,6 +284,27 @@ public class MainCam extends Activity implements IBaseGpsListener {
             // Camera is not available (in use or does not exist)
         }
         return c; // returns null if camera is unavailable
+    }
+
+    public static void initialCamera(Camera.Parameters params, Camera mCamera) {
+        // set the focus mode
+        List<String> focusModes = params.getSupportedFocusModes();
+        if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
+            params.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+        }
+        List<String> whiteBalance = params.getSupportedWhiteBalance();
+        if (whiteBalance.contains(Camera.Parameters.WHITE_BALANCE_AUTO)) {
+            params.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
+        }
+        List<String> sceneMode = params.getSupportedSceneModes();
+        if (sceneMode.contains(Camera.Parameters.SCENE_MODE_AUTO)) {
+            params.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
+        }
+        params.setExposureCompensation((int)((double)params.getMaxExposureCompensation() / 1.5));
+        if (params.isVideoStabilizationSupported()) {
+            params.setVideoStabilization(true);
+        }
+        mCamera.setParameters(params);
     }
 
     public static boolean prepareVideoRecorder(){
@@ -273,6 +329,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // Step 6: Prepare configured MediaRecorder
         try {
             mMediaRecorder.prepare();
+            mCamera.lock();
+            initialCamera(params,mCamera);
+            mCamera.unlock();
         } catch (IllegalStateException e) {
             Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
             releaseMediaRecorder();
@@ -437,9 +496,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
     }
 
     public void startCameraService() {
-        mCameraService.startCamera();
-        isServiceRun = true;
-        isRecording = true;
+        if(mCameraService != null) {
+            mCameraService.startCamera();
+            isServiceRun = true;
+            isRecording = true;
+        }
     }
 
     public void stopCameraService() {
@@ -510,8 +571,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
         if((currentSpeed >= maxSpeed) && (alarmCount < maxAlarmCount)) {
             alarmCount++;
             mp.start();
-        }else
+        }else if(currentSpeed < maxSpeed) {
             alarmCount = 0;
+        }
         String strUnits = "mph";
 
         TextView txtCurrentSpeed = (TextView) this.findViewById(R.id.txtCurrentSpeed);

@@ -13,8 +13,8 @@ public class CLocation extends Location {
     public float distanceTo(Location dest) {
         // TODO Auto-generated method stub
         float nDistance = super.distanceTo(dest);
-            //Convert meters to feet
-            nDistance = nDistance * 3.28083989501312f;
+        //Convert meters to feet
+        nDistance = nDistance * 3.28083989501312f;
         return nDistance;
     }
 
@@ -22,8 +22,8 @@ public class CLocation extends Location {
     public float getAccuracy() {
         // TODO Auto-generated method stub
         float nAccuracy = super.getAccuracy();
-            //Convert meters to feet
-            nAccuracy = nAccuracy * 3.28083989501312f;
+        //Convert meters to feet
+        nAccuracy = nAccuracy * 3.28083989501312f;
         return nAccuracy;
     }
 
@@ -31,8 +31,8 @@ public class CLocation extends Location {
     public double getAltitude() {
         // TODO Auto-generated method stub
         double nAltitude = super.getAltitude();
-            //Convert meters to feet
-            nAltitude = nAltitude * 3.28083989501312d;
+        //Convert meters to feet
+        nAltitude = nAltitude * 3.28083989501312d;
         return nAltitude;
     }
 
@@ -40,8 +40,8 @@ public class CLocation extends Location {
     public float getSpeed() {
         // TODO Auto-generated method stub
         float nSpeed = super.getSpeed();
-            //Convert meters/second to miles/hour
-            nSpeed = nSpeed * 2.2369362920544f;
+        //Convert meters/second to miles/hour
+        nSpeed = nSpeed * 2.2369362920544f;
         return nSpeed;
     }
 
