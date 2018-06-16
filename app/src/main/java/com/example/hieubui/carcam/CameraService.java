@@ -113,7 +113,6 @@ public class CameraService extends Service {
             MainCam.isRecording = false;
             MainCam.isServiceRun = false;
             stopSelf();
-
         }
 
     }

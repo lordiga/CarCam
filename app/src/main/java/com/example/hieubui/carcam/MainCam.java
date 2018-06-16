@@ -11,6 +11,10 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
 import android.media.CamcorderProfile;
@@ -18,6 +22,7 @@ import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.BatteryManager;
+import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.IBinder;
 import android.support.v4.app.ActivityCompat;
@@ -30,6 +35,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,6 +51,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
 
 import static android.content.ContentValues.TAG;
 import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
@@ -53,7 +61,10 @@ import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
  * status bar and navigation/system bar) with user interaction.
  */
 public class MainCam extends Activity implements IBaseGpsListener {
-
+    static SensorManager mySensorManager;
+    static SensorEventListener LightSensorListener;
+    static boolean darkLight;
+    static CountDownTimer recordTimer;
     static Camera mCamera;
     static CameraPreview mPreview;
     static MediaRecorder mMediaRecorder;
@@ -103,12 +114,77 @@ public class MainCam extends Activity implements IBaseGpsListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main_cam);
-
         // Create an instance of Camera
         mCamera = getCameraInstance();
-        if(mCamera != null) {
+        if (mCamera != null) {
             params = mCamera.getParameters();
-            initialCamera(params, mCamera);
+        }
+        // Initiate Light sensor
+        darkLight = false;
+        LightSensorListener = new SensorEventListener(){
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+            }
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] <10000)){
+                    // Very dark light now
+                    if(!darkLight) {
+                        if(isRecording) {
+                            if(isServiceRun) {
+                                // If it's not darklight already, we change the camera config here
+                                stopCameraService();
+                                configSenseModeCamera(params, mCamera, true);
+                                startCameraService();
+                            }else{
+                                stopCamera();
+                                configSenseModeCamera(params, mCamera, true);
+                                startCamera();
+                            }
+
+                        }else{
+                            configSenseModeCamera(params, mCamera, true);
+                        }
+                        Toast.makeText(MainCam.this, "Turn on night mode", Toast.LENGTH_SHORT).show();
+                        darkLight = true;
+                    }
+                }else if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 10000)){
+                    // Bright light now
+                    if(darkLight) {
+                        // If it's already dark we change config to bright mode
+                        if(isRecording) {
+                            if(isServiceRun) {
+                                // If it's darklight already, we change the camera config here
+                                stopCameraService();
+                                configSenseModeCamera(params, mCamera, false);
+                                startCameraService();
+                            }else{
+                                stopCamera();
+                                configSenseModeCamera(params, mCamera, false);
+                                startCamera();
+                            }
+
+                        }else{
+                            configSenseModeCamera(params, mCamera, false);
+                        }
+                        Toast.makeText(MainCam.this, "Turn on day mode", Toast.LENGTH_SHORT).show();
+                        darkLight = false;
+                    }
+                }
+            }
+
+        };
+        mySensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        if(LightSensor != null){
+            mySensorManager.registerListener(
+                    LightSensorListener,
+                    LightSensor,
+                    SensorManager.SENSOR_DELAY_NORMAL);
+
+        }else{
+            Toast.makeText(MainCam.this,"Sensor.TYPE_LIGHT NOT Available",Toast.LENGTH_SHORT).show();
         }
         mMediaRecorder = new MediaRecorder();
 
@@ -116,7 +192,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         mPreview = new CameraPreview(this, mCamera);
         FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
         preview.addView(mPreview);
-
+        startRecordTimer();
         //Binding CameraService to main thread
         // Bind to LocalService
         Intent intent = new Intent(this, CameraService.class);
@@ -124,7 +200,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
         //Initiate alarm and maxspeed
         mp = MediaPlayer.create(this, R.raw.alarm);
-        maxSpeed =80;
+        maxSpeed = 80;
         alarmCount = 0;
         maxAlarmCount = 5;
         //Initiate GPS and Speedometer
@@ -139,8 +215,15 @@ public class MainCam extends Activity implements IBaseGpsListener {
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
-        this.updateSpeed(null);
+        try {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
+        }catch (Exception e) {
+            locationManager = null;
+            Toast.makeText(MainCam.this,"Location service is no available",Toast.LENGTH_SHORT).show();
+        }
+        if(locationManager != null) {
+            this.updateSpeed(null);
+        }
 
         //Initiate recorduration and maxsize and max speed
         recordDuration = 10;
@@ -159,13 +242,32 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             // stop recording and release camera
                             stopCamera();
                             // stop the timer
-                            stopTimer();
+                            stopTimerTask();
+                            //StopRecordingTimer
+                            stopRecordTimer();
+                            // Remove GPS update
+                            if(locationManager != null) {
+                                locationManager.removeUpdates(MainCam.this);
+                            }
                             // inform the user that recording has stopped
-                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Capture");
-                        }
-                        else if(!isRecording && !isServiceRun) {
+                            setCaptureButtonText((Button) findViewById(R.id.button_capture), "Capture");
+                        } else if (!isRecording && !isServiceRun) {
                             // Only start recording when service is not running and camera is not running
-                            if(startCamera()){
+                            if (startCamera()) {
+                                // Request GPS Update
+                                if (ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                                    // TODO: Consider calling
+                                    //    ActivityCompat#requestPermissions
+                                    // here to request the missing permissions, and then overriding
+                                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                    //                                          int[] grantResults)
+                                    // to handle the case where the user grants the permission. See the documentation
+                                    // for ActivityCompat#requestPermissions for more details.
+                                    return;
+                                }
+                                if(locationManager != null) {
+                                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
+                                }
                                 // inform the user that recording has started
                                 setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
                                 startTimer(recordDuration);
@@ -188,6 +290,20 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             // Only start the service if it's not running
                             // If it's running then don't do anything
                             startCameraService();
+                            // Request GPS Update
+                            if (ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                                // TODO: Consider calling
+                                //    ActivityCompat#requestPermissions
+                                // here to request the missing permissions, and then overriding
+                                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                //                                          int[] grantResults)
+                                // to handle the case where the user grants the permission. See the documentation
+                                // for ActivityCompat#requestPermissions for more details.
+                                return;
+                            }
+                            if(locationManager != null) {
+                                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
+                            }
                             startServiceTimer(recordDuration);
                             setCaptureButtonText((Button) findViewById(R.id.button_service), "Stop Service");
                         }else if( (isServiceRun) && (isRecording)) {
@@ -195,6 +311,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             // We will stop the service
                             stopCameraService();
                             stopServiceTimer();
+                            // Stop recordingTimer
+                            stopRecordTimer();
+                            // Remove GPS update
+                            if(locationManager != null) {
+                                locationManager.removeUpdates(MainCam.this);
+                            }
                             setCaptureButtonText((Button) findViewById(R.id.button_service), "Start Service");
                         }
                     }
@@ -204,7 +326,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // Create an intent filter to recieve batery charge event
         ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         BroadcastReceiver smsReceiver = new BroadcastReceiver(){
-
             @Override
             public void onReceive(Context context, Intent intent) {
                 int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
@@ -231,12 +352,42 @@ public class MainCam extends Activity implements IBaseGpsListener {
     @Override
     protected void onPause() {
         super.onPause();
+        if((!isServiceRun)&&(isRecording)) {
+            // if service is not running and camera is recording
+            // We stop the camera
+            stopCamera();
+        }
 
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if(isRecording){
+            if(isServiceRun) {
+                stopCameraService();
+            }else{
+                stopCamera();
+            }
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if(isRecording){
+            if(isServiceRun) {
+                stopCameraService();
+            }else{
+                stopCamera();
+            }
+        }
     }
 
     @Override
@@ -286,7 +437,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         return c; // returns null if camera is unavailable
     }
 
-    public static void initialCamera(Camera.Parameters params, Camera mCamera) {
+    public static void configSenseModeCamera(Camera.Parameters params, Camera mCamera, boolean darkLight) {
         // set the focus mode
         List<String> focusModes = params.getSupportedFocusModes();
         if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
@@ -300,7 +451,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
         if (sceneMode.contains(Camera.Parameters.SCENE_MODE_AUTO)) {
             params.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
         }
-        params.setExposureCompensation((int)((double)params.getMaxExposureCompensation() / 1.5));
+        if(darkLight) {
+            params.setExposureCompensation((int) ((double) params.getMaxExposureCompensation() / 1.5));
+        }else{
+            params.setExposureCompensation(0);
+        }
         if (params.isVideoStabilizationSupported()) {
             params.setVideoStabilization(true);
         }
@@ -329,9 +484,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // Step 6: Prepare configured MediaRecorder
         try {
             mMediaRecorder.prepare();
-            mCamera.lock();
-            initialCamera(params,mCamera);
-            mCamera.unlock();
         } catch (IllegalStateException e) {
             Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
             releaseMediaRecorder();
@@ -370,8 +522,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // To be safe, you should check that the SDCard is mounted
         // using Environment.getExternalStorageState() before doing this.
 
-        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_MOVIES), "CarCam");
+        File mediaStorageDir = new File("/storage/sdcard0/CarCam");
         // This location works best if you want the created images to be shared
         // between applications and persist after your app has been uninstalled.
 
@@ -414,7 +565,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             Arrays.sort(listFiles);
             if(listFiles.length >= numberOfFile) {
                 // We delete the first file
-                listFiles[listFiles.length - 1].delete();
+                listFiles[0].delete();
             }else
                 return;
         }else{
@@ -434,6 +585,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             // now you can start recording
             mMediaRecorder.start();
             isRecording = true;
+            startRecordTimer();
             return true;
         } else {
             // prepare didn't work, release the camera
@@ -441,6 +593,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             // inform user
             return false;
         }
+
     }
 
     public void stopCamera() {
@@ -456,7 +609,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         mTimer.schedule(mTimerTask, duration*60*1000, duration*60*1000); //
     }
 
-    public void stopTimer() {
+    public void stopTimerTask() {
         Toast.makeText(MainCam.this,"Stopping Timer Task",Toast.LENGTH_LONG).show();
         mTimer.cancel();
     }
@@ -498,6 +651,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public void startCameraService() {
         if(mCameraService != null) {
             mCameraService.startCamera();
+            startRecordTimer();
             isServiceRun = true;
             isRecording = true;
         }
@@ -578,5 +732,33 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
         TextView txtCurrentSpeed = (TextView) this.findViewById(R.id.txtCurrentSpeed);
         txtCurrentSpeed.setText(strCurrentSpeed + " " + strUnits);
+    }
+    public void startRecordTimer() {
+        final TextView txtRecordTimer = (TextView) this.findViewById(R.id.txtRecordTimer);
+        if(recordTimer != null) {
+            // If waitTimer is not null First we cancel the current one
+            // Then we start it up
+            recordTimer.cancel();
+            recordTimer.start();
+        }else{
+            // If recordTimer is null then we run it
+            recordTimer = new CountDownTimer(600000, 1000) {
+                long minute;
+                long second;
+                public void onTick(long millisUntilFinished) {
+                    minute = TimeUnit.MILLISECONDS.toMinutes(millisUntilFinished);
+                    second = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) % 60;
+                    txtRecordTimer.setText(minute + ":" + second + "/" + recordDuration + ":00");
+                }
+                public void onFinish() {
+                    txtRecordTimer.setText("00:00/10:00");
+                }
+            }.start();
+        }
+    }
+    public void stopRecordTimer() {
+        if(recordTimer != null) {
+            recordTimer.cancel();
+        }
     }
 }

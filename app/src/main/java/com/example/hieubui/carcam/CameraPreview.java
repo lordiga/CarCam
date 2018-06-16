@@ -40,6 +40,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
                 startCameraService();
                 Button serviceButton = (Button) ((Activity) mcontext).findViewById(R.id.button_service);
                 serviceButton.setText("Stop Service");
+
             }
         } catch (IOException e) {
             Log.d(TAG, "Error setting camera preview: " + e.getMessage());
