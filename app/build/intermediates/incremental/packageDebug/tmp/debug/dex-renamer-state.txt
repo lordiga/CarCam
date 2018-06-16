@@ -1,4 +1,4 @@
-#Tue May 01 23:18:08 EDT 2018
+#Sat Jun 16 09:50:35 EDT 2018
 base.0=E\:\\StudioProjects\\CarCam\\app\\build\\intermediates\\transforms\\dexMerger\\debug\\0
 path.0=classes.dex
 renamed.0=classes.dex

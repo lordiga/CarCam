@@ -4,7 +4,17 @@
             "outputFile": "E:\\StudioProjects\\CarCam\\app\\build\\intermediates\\incremental\\mergeDebugResources\\merged.dir\\values-v16\\values-v16.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Hieu Bui\\.gradle\\caches\\transforms-1\\files-1.1\\appcompat-v7-26.1.0.aar\\9f077f5b38767475c88fc486e4b2ac9b\\res\\values-v16\\values-v16.xml",
+                    "source": "C:\\Users\\Hieu Bui\\.gradle\\caches\\transforms-1\\files-1.1\\support-compat-26.1.0.aar\\056fbf66edd63ef4a6b595f6f53e319d\\res\\values-v16\\values-v16.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "65",
+                        "endOffsets": "116"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Hieu Bui\\.gradle\\caches\\transforms-1\\files-1.1\\appcompat-v7-26.1.0.aar\\99c93ff7c62cf297d7155b285e3e8dfe\\res\\values-v16\\values-v16.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
@@ -20,16 +30,6 @@
                         "endLines": "6",
                         "endColumns": "12",
                         "endOffsets": "289"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\Hieu Bui\\.gradle\\caches\\transforms-1\\files-1.1\\support-compat-26.1.0.aar\\946bae14d268de23c9c26efbc2c68281\\res\\values-v16\\values-v16.xml",
-                    "from": {
-                        "startLines": "2",
-                        "startColumns": "4",
-                        "startOffsets": "55",
-                        "endColumns": "65",
-                        "endOffsets": "116"
                     }
                 }
             ]

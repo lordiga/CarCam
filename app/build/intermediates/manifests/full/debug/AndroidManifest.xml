@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" >
     </uses-permission>
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-feature android:name="android.hardware.camera" />
 
@@ -37,6 +40,14 @@
             </intent-filter>
         </activity>
 
+        <!--
+        <receiver android:name=".PowerConnectionReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED"/>
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED"/>
+            </intent-filter>
+        </receiver>
+        -->
         <service android:name="com.example.hieubui.carcam.CameraService" />
 
         <meta-data
