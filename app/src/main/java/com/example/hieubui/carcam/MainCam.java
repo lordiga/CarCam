@@ -61,6 +61,7 @@ import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
  * status bar and navigation/system bar) with user interaction.
  */
 public class MainCam extends Activity implements IBaseGpsListener {
+    static boolean previousCharging;
     static SensorManager mySensorManager;
     static SensorEventListener LightSensorListener;
     static boolean darkLight;
@@ -128,9 +129,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
             }
             @Override
             public void onSensorChanged(SensorEvent event) {
-                if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] <10000)){
+                if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] <150)){
+                    darkLight = true;
                     // Very dark light now
-                    if(!darkLight) {
+                    /*if(!darkLight) {
                         if(isRecording) {
                             if(isServiceRun) {
                                 // If it's not darklight already, we change the camera config here
@@ -147,11 +149,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             configSenseModeCamera(params, mCamera, true);
                         }
                         Toast.makeText(MainCam.this, "Turn on night mode", Toast.LENGTH_SHORT).show();
-                        darkLight = true;
-                    }
-                }else if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 10000)){
+
+                    }*/
+                }else if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)){
                     // Bright light now
-                    if(darkLight) {
+                    darkLight = false;
+                    /*if(darkLight) {
                         // If it's already dark we change config to bright mode
                         if(isRecording) {
                             if(isServiceRun) {
@@ -169,8 +172,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             configSenseModeCamera(params, mCamera, false);
                         }
                         Toast.makeText(MainCam.this, "Turn on day mode", Toast.LENGTH_SHORT).show();
-                        darkLight = false;
-                    }
+
+                    }*/
                 }
             }
 
@@ -181,7 +184,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             mySensorManager.registerListener(
                     LightSensorListener,
                     LightSensor,
-                    SensorManager.SENSOR_DELAY_NORMAL);
+                    90000000);
 
         }else{
             Toast.makeText(MainCam.this,"Sensor.TYPE_LIGHT NOT Available",Toast.LENGTH_SHORT).show();
@@ -280,7 +283,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     }
                 }
         );
-
+        // Add listener to service button
         Button serviceButton = (Button) findViewById(R.id.button_service);
         serviceButton.setOnClickListener(
                 new View.OnClickListener() {
@@ -324,6 +327,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         );
 
         // Create an intent filter to recieve batery charge event
+        previousCharging = false;
         ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         BroadcastReceiver smsReceiver = new BroadcastReceiver(){
             @Override
@@ -333,13 +337,16 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 boolean acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
                 if(usbCharge || acCharge ){
                     Toast.makeText(MainCam.this,"Phone is charging",Toast.LENGTH_LONG).show();
-                    /*if(!MainCam.isServiceRun && !MainCam.isRecording && MainCam.mCameraService != null) {
-                        // This check will make sure the first run will not kick off the service as
-                        // it has been taken care
-                        startCameraService();
-                        startServiceTimer(recordDuration);
-                        setCaptureButtonText((Button) findViewById(R.id.button_service), "Stop Service");
-                    }*/
+                    if(!previousCharging) {
+                        if (!MainCam.isServiceRun && !MainCam.isRecording && MainCam.mCameraService != null) {
+                            // This check will make sure the first run will not kick off the service as
+                            // it has been taken care
+                            startCameraService();
+                            startServiceTimer(recordDuration);
+                            setCaptureButtonText((Button) findViewById(R.id.button_service), "Stop Service");
+                        }
+                        previousCharging = true;
+                    }
                 }
 
             }
@@ -352,18 +359,100 @@ public class MainCam extends Activity implements IBaseGpsListener {
     @Override
     protected void onPause() {
         super.onPause();
-        if((!isServiceRun)&&(isRecording)) {
-            // if service is not running and camera is recording
-            // We stop the camera
-            stopCamera();
-        }
 
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if(mCamera == null) {
+            // Create an instance of Camera
+            mCamera = getCameraInstance();
+            if (mCamera != null) {
+                params = mCamera.getParameters();
+            }
+        }
+        if((LightSensorListener == null) || (mySensorManager == null)) {
+            // Initiate Light sensor
+            darkLight = false;
+            LightSensorListener = new SensorEventListener() {
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+                }
+
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 10000)) {
+                        darkLight = true;
+                        // Very dark light now
+                        /*if (!darkLight) {
+                            if (isRecording) {
+                                if (isServiceRun) {
+                                    // If it's not darklight already, we change the camera config here
+                                    stopCameraService();
+                                    configSenseModeCamera(params, mCamera, true);
+                                    startCameraService();
+                                } else {
+                                    stopCamera();
+                                    configSenseModeCamera(params, mCamera, true);
+                                    startCamera();
+                                }
+
+                            } else {
+                                configSenseModeCamera(params, mCamera, true);
+                            }
+                            Toast.makeText(MainCam.this, "Turn on night mode", Toast.LENGTH_SHORT).show();
+
+                        }*/
+                    } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 10000)) {
+                        darkLight = false;
+                        // Bright light now
+                        /*if (darkLight) {
+                            // If it's already dark we change config to bright mode
+                            if (isRecording) {
+                                if (isServiceRun) {
+                                    // If it's darklight already, we change the camera config here
+                                    stopCameraService();
+                                    configSenseModeCamera(params, mCamera, false);
+                                    startCameraService();
+                                } else {
+                                    stopCamera();
+                                    configSenseModeCamera(params, mCamera, false);
+                                    startCamera();
+                                }
+
+                            } else {
+                                configSenseModeCamera(params, mCamera, false);
+                            }
+                            Toast.makeText(MainCam.this, "Turn on day mode", Toast.LENGTH_SHORT).show();
+
+                        }*/
+                    }
+                }
+
+            };
+            mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+            Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+            if (LightSensor != null) {
+                mySensorManager.registerListener(
+                        LightSensorListener,
+                        LightSensor,
+                        5 * 60 * 1000000);
+
+            } else {
+                Toast.makeText(MainCam.this, "Sensor.TYPE_LIGHT NOT Available", Toast.LENGTH_SHORT).show();
+            }
+        }
+        if(mMediaRecorder == null) {
+            mMediaRecorder = new MediaRecorder();
+        }
+        if(mPreview == null) {
+            mPreview = new CameraPreview(this, mCamera);
+            FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
+            preview.addView(mPreview);
+            startRecordTimer();
+        }
     }
 
     @Override
@@ -381,13 +470,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
     @Override
     protected void onStop() {
         super.onStop();
-        if(isRecording){
-            if(isServiceRun) {
-                stopCameraService();
-            }else{
-                stopCamera();
-            }
-        }
     }
 
     @Override
@@ -484,6 +566,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // Step 6: Prepare configured MediaRecorder
         try {
             mMediaRecorder.prepare();
+            mCamera.lock();
+            configSenseModeCamera(params,mCamera,darkLight);
+            mCamera.unlock();
         } catch (IllegalStateException e) {
             Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
             releaseMediaRecorder();
