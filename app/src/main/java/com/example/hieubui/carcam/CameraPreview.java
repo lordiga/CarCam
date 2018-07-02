@@ -4,31 +4,43 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
+import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
 import android.widget.Button;
 import android.widget.Toast;
-
 import java.io.IOException;
-
 import static android.content.ContentValues.TAG;
 
 /** A basic Camera preview class */
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
-    private SurfaceHolder mHolder;
-    private Camera mCamera;
-    private Context mcontext;
+    public SurfaceHolder mHolder;
+    public Camera mCamera;
+    public Context mcontext;
+    public Surface mSurface;
 
     public CameraPreview(Context context, Camera camera) {
         super(context);
         mCamera = camera;
         mcontext = context;
-
         // Install a SurfaceHolder.Callback so we get notified when the
         // underlying surface is created and destroyed.
         mHolder = getHolder();
         mHolder.addCallback(this);
+        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        mSurface = mHolder.getSurface();
+    }
+
+    public CameraPreview(Context context, AttributeSet attrs, int defStyle) {
+        super(context, attrs, defStyle);
+        // TODO Auto-generated constructor stub
+    }
+
+    public CameraPreview(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        // TODO Auto-generated constructor stub
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
@@ -78,7 +90,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     }
 
     public void startCameraService() {
-        Toast.makeText(mcontext,"Starting Service for first run",Toast.LENGTH_LONG).show();
+        Log.d("Camera Preview","Starting Service for first run");
         Intent intent = new Intent(MainApp.getContext(), CameraService.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         MainApp.getContext().startService(intent);
