@@ -3,12 +3,14 @@ package com.example.hieubui.carcam;
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.Application;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.hardware.Sensor;
@@ -26,12 +28,14 @@ import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.StatFs;
+import android.preference.PreferenceManager;
 import android.support.v4.app.ActivityCompat;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.io.File;
@@ -53,6 +57,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     static SensorManager mySensorManager;
     static SensorEventListener LightSensorListener;
     static boolean darkLight;
+    static String senceMode;
     static CountDownTimer recordTimer;
     static Camera mCamera;
     static CameraPreview mPreview;
@@ -62,21 +67,21 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
     static boolean mBound = false;
-    static Timer mTimer;
-    static TimerTask mTimerTask;
     static Timer mServiceTimer;
     static TimerTask mServiceTimerTask;
     static boolean isServiceRun = false;
     static int recordDuration;
-    static int maxSize;
     static int maxSpeed;
     static int currentSpeed;
     static int alarmCount;
     static int maxAlarmCount;
+    static int availableStorage;
     static Camera.Parameters params;
     static boolean previousCharging;
     IntentFilter ifilter;
     BroadcastReceiver smsReceiver;
+    static boolean mautoStart;
+    SharedPreferences mpref;
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
 
@@ -109,32 +114,37 @@ public class MainCam extends Activity implements IBaseGpsListener {
         if (mCamera != null) {
             params = mCamera.getParameters();
         }
+        mpref = PreferenceManager.getDefaultSharedPreferences(this);
         // Initiate Light sensor
-        darkLight = false;
-        LightSensorListener = new SensorEventListener(){
-            @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        senceMode = mpref.getString("senceMode","");
+        darkLight = senceMode.compareTo("Night") == 0;
+        if(senceMode!= null && (senceMode.compareTo("Auto") == 0) ) {
+            LightSensorListener = new SensorEventListener() {
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
-            }
-            @Override
-            public void onSensorChanged(SensorEvent event) {
-                if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] <150)){
-                    darkLight = true;
-                }else if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)){
-                    // Bright light now
-                    darkLight = false;
                 }
+
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150)) {
+                        darkLight = true;
+                    } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)) {
+                        // Bright light now
+                        darkLight = false;
+                    }
+                }
+            };
+            mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+            Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+            if (LightSensor != null) {
+                mySensorManager.registerListener(
+                        LightSensorListener,
+                        LightSensor,
+                        90000000);
+            } else {
+                Log.d("MainCam", "Sensor.TYPE_LIGHT NOT Available");
             }
-        };
-        mySensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-        Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-        if(LightSensor != null){
-            mySensorManager.registerListener(
-                    LightSensorListener,
-                    LightSensor,
-                    90000000);
-        }else{
-            Log.d("MainCam","Sensor.TYPE_LIGHT NOT Available");
         }
         mMediaRecorder = new MediaRecorder();
 
@@ -145,12 +155,18 @@ public class MainCam extends Activity implements IBaseGpsListener {
         startRecordTimer();
         //Binding CameraService to main thread
         // Bind to LocalService
-        Intent intent = new Intent(this, CameraService.class);
+        final Intent intent = new Intent(this, CameraService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 
         //Initiate alarm and maxspeed
         mp = MediaPlayer.create(this, R.raw.alarm);
-        maxSpeed = 80;
+        try {
+            maxSpeed = Integer.parseInt(mpref.getString("maxSpeed",""));
+        }catch (NumberFormatException e) {
+            Toast.makeText(this, "Invalid Max Speed. Using Default Value", Toast.LENGTH_SHORT).show();
+            maxSpeed = 80;
+        }
+
         alarmCount = 0;
         maxAlarmCount = 5;
         //Initiate GPS and Speedometer
@@ -175,63 +191,38 @@ public class MainCam extends Activity implements IBaseGpsListener {
             this.updateSpeed(null);
         }
 
-        //Initiate recorduration and maxsize and max speed
-        recordDuration = 10;
-        maxSize = 4;
+        //Initiate recorduration available storage
+
+        try {
+            recordDuration = Integer.parseInt(mpref.getString("recordDuration",""));
+        }catch (NumberFormatException e) {
+            Toast.makeText(this, "Invalid Record Duration. Please Fix It In Setting. Using Default value", Toast.LENGTH_SHORT).show();
+            recordDuration = 10;
+        }
+        try {
+            availableStorage = Integer.parseInt(mpref.getString("availableStorage",""));
+        }catch (NumberFormatException e) {
+            Toast.makeText(this, "Invalid Available Storage. Please Fix It In Setting. Using Default value", Toast.LENGTH_SHORT).show();
+            availableStorage = 700;
+        }
         // Initiate and start service timer for the first run
         startServiceTimer(recordDuration);
 
-        // Add a listener to the Capture button
-        Button captureButton = (Button) findViewById(R.id.button_capture);
-        captureButton.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (isRecording && !isServiceRun) {
-                            // Stop camera when service is not runing but camera is running
-                            // stop recording and release camera
-                            stopCamera();
-                            // stop the timer
-                            stopTimerTask();
-                            //StopRecordingTimer
-                            stopRecordTimer();
-                            // Remove GPS update
-                            if(locationManager != null) {
-                                locationManager.removeUpdates(MainCam.this);
-                            }
-                            // inform the user that recording has stopped
-                            setCaptureButtonText((Button) findViewById(R.id.button_capture), "Capture");
-                        } else if (!isRecording && !isServiceRun) {
-                            // Only start recording when service is not running and camera is not running
-                            if (startCamera()) {
-                                // Request GPS Update
-                                if (ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                                    // TODO: Consider calling
-                                    //    ActivityCompat#requestPermissions
-                                    // here to request the missing permissions, and then overriding
-                                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                                    //                                          int[] grantResults)
-                                    // to handle the case where the user grants the permission. See the documentation
-                                    // for ActivityCompat#requestPermissions for more details.
-                                    return;
-                                }
-                                if(locationManager != null) {
-                                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
-                                }
-                                // inform the user that recording has started
-                                setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
-                                startTimer(recordDuration);
-                            }else{
-                                Log.d("MainCam","Failed to acquire Camera");
-                            }
-                        }else{
-                            Log.d("MainCam","Failed to acquire Camera or Camera service is running");
-                        }
-                    }
+        // Add Setting button
+
+        final ImageButton settingButton = (ImageButton) findViewById(R.id.setting);
+
+        settingButton.setOnClickListener(
+            new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Intent settingIntent = new Intent(MainCam.this,SettingsActivity.class);
+                    startActivity(settingIntent);
                 }
+            }
         );
         // Add listener to service button
-        Button serviceButton = (Button) findViewById(R.id.button_service);
+        final ImageButton serviceButton = (ImageButton) findViewById(R.id.button_service);
         serviceButton.setOnClickListener(
                 new View.OnClickListener() {
                     @Override
@@ -255,7 +246,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
                                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
                             }
                             startServiceTimer(recordDuration);
-                            setCaptureButtonText((Button) findViewById(R.id.button_service), "Stop Service");
+                            serviceButton.setBackgroundResource(R.drawable.stop_record);
                         }else if( (isServiceRun) && (isRecording)) {
                             // If service is runnung and it's recording
                             // We will stop the service
@@ -267,7 +258,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             if(locationManager != null) {
                                 locationManager.removeUpdates(MainCam.this);
                             }
-                            setCaptureButtonText((Button) findViewById(R.id.button_service), "Start Service");
+                            serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
                         }
                     }
                 }
@@ -303,14 +294,16 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
             }
         };
-        Intent batteryStatus = this.registerReceiver(smsReceiver, ifilter);
-        // here we start another service to catch the battery signal.
-        // This service in used to start this app
-        Intent batteryServiceIntent = new Intent(this,BatteryService.class);
-        if(!isMyServiceRunning(BatteryService.class)) {
-            startService(batteryServiceIntent);
+        mautoStart = mpref.getBoolean("autoStartStop",false);
+        if(mautoStart) {
+            Intent batteryStatus = this.registerReceiver(smsReceiver, ifilter);
+            // here we start another service to catch the battery signal.
+            // This service in used to start this app. check with value from setting first
+            Intent batteryServiceIntent = new Intent(this, BatteryService.class);
+            if (!isMyServiceRunning(BatteryService.class)) {
+                startService(batteryServiceIntent);
+            }
         }
-
     }
 
     @Override
@@ -321,16 +314,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 stopCameraService();
                 stopServiceTimer();
                 // Stop recordingTimer
-                stopRecordTimer();
-                // Remove GPS update
-                if(locationManager != null) {
-                    locationManager.removeUpdates(MainCam.this);
-                }
-            }else{
-                stopCamera();
-                // stop the timer
-                stopTimerTask();
-                //StopRecordingTimer
                 stopRecordTimer();
                 // Remove GPS update
                 if(locationManager != null) {
@@ -377,6 +360,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     }
 
     /* Method Definition*/
+
     /** A safe way to get an instance of the Camera object. */
     public static Camera getCameraInstance(){
         Camera c = null;
@@ -435,8 +419,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
         mMediaRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_480P));
 
         // Step 4: Set output file
-        if(getOutputMediaFile(MEDIA_TYPE_VIDEO) != null) {
-            mMediaRecorder.setOutputFile(getOutputMediaFile(MEDIA_TYPE_VIDEO).toString());
+        if(getOutputMediaFile(MEDIA_TYPE_VIDEO,availableStorage) != null) {
+            mMediaRecorder.setOutputFile(getOutputMediaFile(MEDIA_TYPE_VIDEO,availableStorage).toString());
         }else {
             return false;
         }
@@ -478,13 +462,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }
     }
 
-    /** Create a file Uri for saving an image or video */
-    public static Uri getOutputMediaFileUri(int type){
-        return Uri.fromFile(getOutputMediaFile(type));
-    }
-
     /** Create a File for saving an image or video */
-    public static File getOutputMediaFile(int type){
+    public static File getOutputMediaFile(int type, int availableStorage){
         // To be safe, you should check that the SDCard is mounted
         // using Environment.getExternalStorageState() before doing this.
 
@@ -503,7 +482,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         //sortSaveDir(mediaStorageDir,maxSize,recordDuration);
         // Check if we need to delete file
         // Storage will save 700mb at least for free space
-        while(getAvailableInternalMemorySize() < 700) {
+        while(getAvailableInternalMemorySize() < availableStorage) {
             // If get have less than 1Gb free
             // We will start delete files
             File[] listFiles =  mediaStorageDir.listFiles();
@@ -511,7 +490,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             if(listFiles.length > 1) {
                 listFiles[0].delete();
             }else {
-                Toast.makeText(MainApp.getContext(),"Not enough available space!!!!",Toast.LENGTH_LONG).show();
+                //Toast.makeText(MainApp.getContext(),"Not enough available space!!!!",Toast.LENGTH_LONG).show();
                 return null;
             }
         }
@@ -531,103 +510,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
         return mediaFile;
     }
 
-    static public void sortSaveDir(File mainDir, int maxSize, int recordDuration) {
-        // Size will be in Gb and time to 1000 to get to mb.
-        // The reference point to determine how many file can be store is 10 min ~ 300 mB file
-        // Duration will be determin in minute
-        // Number of file = (maxSize * 1000) / (recordDuration * 300 / 10)
-
-        int numberOfFile = (maxSize * 1000) / (recordDuration * 300 / 10);
-
-        if(mainDir.exists()) {
-            // If Maindir exists. we start checking
-            File[] listFiles =  mainDir.listFiles();
-            Arrays.sort(listFiles);
-            if(listFiles.length >= numberOfFile) {
-                // We delete the first file
-                listFiles[0].delete();
-            }else
-                return;
-        }else{
-            // If mainDir doesn't exists do nothing
-            return;
-        }
-    }
-
-    public void setCaptureButtonText(Button button, String newText) {
-        button.setText(newText);
-    }
-
-    public boolean startCamera() {
-        // initialize video camera
-        if (prepareVideoRecorder()) {
-            // Camera is available and unlocked, MediaRecorder is prepared,
-            // now you can start recording
-            mMediaRecorder.start();
-            isRecording = true;
-            startRecordTimer();
-            return true;
-        } else {
-            // prepare didn't work, release the camera
-            releaseMediaRecorder();
-            // inform user
-            return false;
-        }
-
-    }
-
-    public void stopCamera() {
-        // Stop camera
-        // stop recording and release camera
-        mMediaRecorder.stop();  // stop the recording
-        mCamera.lock();         // take camera access back from MediaRecorder
-        isRecording = false;
-    }
-
-    public void startTimer(int duration) {
-        initialTimer();
-        mTimer.schedule(mTimerTask, duration*60*1000, duration*60*1000); //
-    }
-
-    public void stopTimerTask() {
-        Log.d("MainCam","Stopping Timer Task");
-        mTimer.cancel();
-    }
-
-    public void initialTimer() {
-        // Set up timer and timertask
-        mTimer = new Timer();
-        mTimerTask = new TimerTask() {
-            @Override
-            public void run() {
-                //task to run for timmer.
-                // This task will first check if camera is in used?
-                // If yes, it will save stop the cam, save to file and start a new service
-                Log.d("TimerTask","Starting timer");
-                if(isRecording){
-                    stopCamera();
-                    Log.d("TimerTask","stop camera in timer task");
-                    // inform the user that recording has stopped
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Capture");
-                        }
-                    });
-                    startCamera();
-                    Log.d("TimerTask","Start camera in timer task");
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            setCaptureButtonText((Button) findViewById(R.id.button_capture),"Stop");
-                        }
-                    });
-                }
-
-            }
-        };
-    }
-
     public void startCameraService() {
         if(mCameraService != null) {
             mCameraService.startCamera();
@@ -643,7 +525,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     public void startServiceTimer(int duration){
         initialServiceTimer();
-        mServiceTimer.schedule(mServiceTimerTask, 10*1000,10*1000);
+        mServiceTimer.schedule(mServiceTimerTask, duration*60*1000,duration*60*1000);
+        //mServiceTimer.schedule(mServiceTimerTask, 10*1000,10*1000);
     }
 
     public void stopServiceTimer() {
@@ -668,7 +551,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            setCaptureButtonText((Button) findViewById(R.id.button_service), "Start Service");
+                            findViewById(R.id.button_service).setBackgroundResource(android.R.drawable.presence_video_online);
                         }
                     });
                 }
@@ -677,7 +560,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            setCaptureButtonText((Button) findViewById(R.id.button_service),"Stop Service");
+                            findViewById(R.id.button_service).setBackgroundResource(R.drawable.stop_record);
                         }
                     });
                 }
@@ -772,4 +655,5 @@ public class MainCam extends Activity implements IBaseGpsListener {
             return 0;
         }
     }
+
 }

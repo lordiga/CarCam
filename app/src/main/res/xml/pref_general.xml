@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="@string/pref_key_autoStart"
+        android:summary="@string/pref_description_autoStart"
+        android:title="@string/pref_title_auto_start" />
+
+    <ListPreference
+        android:defaultValue="-1"
+        android:entries="@array/pref_sence_mode_item"
+        android:entryValues="@array/pref_sence_mode_value"
+        android:key="senceMode"
+        android:negativeButtonText="@null"
+        android:positiveButtonText="@null"
+        android:summary="@string/pref_description_sence_mode"
+        android:title="@string/pref_title_sence_mode" />
+
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_record_time"
+        android:inputType="textCapWords"
+        android:key="recordDuration"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_record_time"
+        android:title="@string/pref_title_record_time" />
+
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_max_speed"
+        android:inputType="textCapWords"
+        android:key="maxSpeed"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_max_speed"
+        android:title="@string/pref_title_max_speed"/>
+
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_available_storage"
+        android:inputType="textCapWords"
+        android:key="availableStorage"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_available_storage"
+        android:title="@string/pref_title_available_storage" />
+
+</PreferenceScreen>

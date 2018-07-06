@@ -3,4 +3,43 @@
 
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="title_activity_settings">Settings</string>
+
+
+    <string name="pref_header_general">General</string>
+
+    <string name="pref_title_auto_start">Auto Start/Stop</string>
+    <string name="pref_description_autoStart">Start/Stop application when phone is on charge/discharge</string>
+    <string name="pref_key_autoStart">autoStartStop</string>
+
+    <string name="pref_title_record_time">Record Time</string>
+    <string name="pref_default_record_time">10</string>
+    <string name="pref_description_record_time">Recording time to save to file (in Minute) </string>
+
+
+    <string name="pref_title_max_speed">Max Speed</string>
+    <string name="pref_default_max_speed">80</string>
+    <string name="pref_description_max_speed">Maximum spped for the phone to alert when running faster (in Mph) </string>
+
+
+    <string name="pref_title_available_storage">Available Storage</string>
+    <string name="pref_default_available_storage">700</string>
+    <string name="pref_description_available_storage">How much free space do you want to keep? (in MB) </string>
+
+
+    <string name="pref_title_sence_mode">Sence Mode</string>
+    <string name="pref_description_sence_mode">Start/Stop application when phone is on charge/discharge</string>
+    <string-array name="pref_sence_mode_item">
+        <item>Day</item>
+        <item>Night</item>
+        <item>Auto</item>
+    </string-array>
+    <string-array name="pref_sence_mode_value">
+        <item>1</item>
+        <item>0</item>
+        <item>-1</item>
+    </string-array>
+
+    <string name="pref_ringtone_silent">Silent</string>
+
 </resources>
