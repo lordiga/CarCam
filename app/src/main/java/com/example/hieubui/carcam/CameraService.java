@@ -4,12 +4,11 @@ import android.app.Activity;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.SurfaceTexture;
 import android.os.Binder;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
-import android.widget.Button;
-import android.widget.Toast;
 
 public class CameraService extends Service {
 
@@ -32,7 +31,7 @@ public class CameraService extends Service {
             stopSelf();
         }else {
             Log.d("Camera Service", "Service Starting!!! ");
-            startCamera();
+             startCamera();
         }
         return START_NOT_STICKY;
     }
@@ -40,14 +39,14 @@ public class CameraService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if(duplicateRun){
+        if(duplicateRun) {
             // Check if we are destroying duplicate run
             // If yes, we don't do anything
             duplicateRun = false;
             Log.d("Camera Service","Destroying duplicate camera service");
 
         }else {
-            if ((MainCam.isRecording) && (MainCam.isServiceRun)) {
+            if((MainCam.isRecording) && (MainCam.isServiceRun)) {
                 Log.d("Camera Service","Destroying camera service");
                 //We only stop recording if service is running and it's recording
                 MainCam.mMediaRecorder.stop();  // stop the recording
@@ -78,6 +77,7 @@ public class CameraService extends Service {
             // Camera is available and unlocked, MediaRecorder is prepared,
             // now you can start recording
             Log.d("Camera Service", "Camera Service start now");
+
             MainCam.mMediaRecorder.start();
             // inform the user that recording has started
             MainCam.isRecording = true;

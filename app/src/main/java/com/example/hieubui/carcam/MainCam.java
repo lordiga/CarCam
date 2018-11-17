@@ -11,7 +11,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -24,15 +26,20 @@ import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.BatteryManager;
+import android.os.Build;
 import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.StatFs;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Surface;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -46,6 +53,7 @@ import java.util.Date;
 import java.util.Formatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
@@ -62,6 +70,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     static Camera mCamera;
     static CameraPreview mPreview;
     static MediaRecorder mMediaRecorder;
+    static boolean surfacePreviewDetroyed = false;
     static boolean isRecording = false;
     static CameraService mCameraService;
     public static final int MEDIA_TYPE_IMAGE = 1;
@@ -77,10 +86,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
     static int maxAlarmCount;
     static int availableStorage;
     static Camera.Parameters params;
-    static boolean previousCharging;
+    static boolean previousCharging = false;
     IntentFilter ifilter;
     BroadcastReceiver smsReceiver;
     static boolean mautoStart;
+    String onScreenDuration;
     SharedPreferences mpref;
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
@@ -100,21 +110,43 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }
     };
     // GPS and speedometer object
-    LocationManager locationManager;
+    static LocationManager locationManager;
     // Sound alarm object
     MediaPlayer mp;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main_cam);
+
+        /**Set up On screen duration*/
+        mpref = PreferenceManager.getDefaultSharedPreferences(this);
+        onScreenDuration = mpref.getString("onScreenDuration","300000");
+        if(Integer.parseInt(onScreenDuration) != 0) {
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                boolean canWrite = Settings.System.canWrite(getApplicationContext());
+                if(canWrite) {
+                    android.provider.Settings.System.putInt(
+                            getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
+                }else {
+                    Intent systemCanWrite = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
+                    systemCanWrite.setData(Uri.parse("package:"+getApplicationContext().getPackageName()));
+                    startActivity(systemCanWrite);
+                }
+            }else {
+                android.provider.Settings.System.putInt(
+                        getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
+            }
+        }else {
+            // User do not want to set screen on time
+            // Keep it on forever
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
         // Create an instance of Camera
         mCamera = getCameraInstance();
         if (mCamera != null) {
             params = mCamera.getParameters();
         }
-        mpref = PreferenceManager.getDefaultSharedPreferences(this);
         // Initiate Light sensor
         senceMode = mpref.getString("senceMode","");
         darkLight = senceMode.compareTo("Night") == 0;
@@ -152,7 +184,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         mPreview = new CameraPreview(this, mCamera);
         FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
         preview.addView(mPreview);
-        startRecordTimer();
+
         //Binding CameraService to main thread
         // Bind to LocalService
         final Intent intent = new Intent(this, CameraService.class);
@@ -207,7 +239,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }
         // Initiate and start service timer for the first run
         startServiceTimer(recordDuration);
-
+        startRecordTimer();
         // Add Setting button
 
         final ImageButton settingButton = (ImageButton) findViewById(R.id.setting);
@@ -224,49 +256,50 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // Add listener to service button
         final ImageButton serviceButton = (ImageButton) findViewById(R.id.button_service);
         serviceButton.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        if((!isServiceRun) && (!isRecording)) {
-                            // Only start the service if it's not running
-                            // If it's running then don't do anything
-                            startCameraService();
-                            // Request GPS Update
-                            if (ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                                // TODO: Consider calling
-                                //    ActivityCompat#requestPermissions
-                                // here to request the missing permissions, and then overriding
-                                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                                //                                          int[] grantResults)
-                                // to handle the case where the user grants the permission. See the documentation
-                                // for ActivityCompat#requestPermissions for more details.
-                                return;
-                            }
-                            if(locationManager != null) {
-                                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
-                            }
-                            startServiceTimer(recordDuration);
-                            serviceButton.setBackgroundResource(R.drawable.stop_record);
-                        }else if( (isServiceRun) && (isRecording)) {
-                            // If service is runnung and it's recording
-                            // We will stop the service
-                            stopCameraService();
-                            stopServiceTimer();
-                            // Stop recordingTimer
-                            stopRecordTimer();
-                            // Remove GPS update
-                            if(locationManager != null) {
-                                locationManager.removeUpdates(MainCam.this);
-                            }
-                            serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
+            new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    if((!isServiceRun) && (!isRecording)) {
+                        // Only start the service if it's not running
+                        // If it's running then don't do anything
+                        startCameraService();
+                        // Request GPS Update
+                        if (ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                            // TODO: Consider calling
+                            //    ActivityCompat#requestPermissions
+                            // here to request the missing permissions, and then overriding
+                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                            //                                          int[] grantResults)
+                            // to handle the case where the user grants the permission. See the documentation
+                            // for ActivityCompat#requestPermissions for more details.
+                            return;
                         }
+                        if(locationManager != null) {
+                            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
+                        }
+                        startServiceTimer(recordDuration);
+                        serviceButton.setBackgroundResource(R.drawable.stop_record);
+                    }else if( (isServiceRun) && (isRecording)) {
+                        // If service is runnung and it's recording
+                        // We will stop the service
+                        stopCameraService();
+                        stopServiceTimer();
+                        // Stop recordingTimer
+                        stopRecordTimer();
+                        // Remove GPS update
+                        if(locationManager != null) {
+                            locationManager.removeUpdates(MainCam.this);
+                        }
+                        serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
                     }
                 }
+            }
         );
 
         // Create an intent filter to recieve batery charge event
+        mautoStart = mpref.getBoolean("autoStartStop",true);
         ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
-        smsReceiver = new BroadcastReceiver(){
+        smsReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
@@ -274,16 +307,25 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 boolean acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
                 if(usbCharge || acCharge ){
                     previousCharging = true;
+                    Log.d("Battery Service", "Charging");
+
                 }else{
                     if(previousCharging) {
                         //If it's not charging now and it used to charge.
                         // We check if speed is 0. If speed is zero
                         // That means we stop so stop camera too
+                        Log.d("Battery Service in Main", "Not Charging");
                         if(locationManager != null) {
                            // MAke sure we don't get fooled by null location
                             if(MainCam.currentSpeed < 1) {
                                 // Stop the camera
+                                Log.d("Battery Service in Main", "Stopping the application");
                                 finish();
+                            }else {
+                                // Car is driving. Check if user want to stop recording
+                                if(!mpref.getBoolean("keepRecordOnDrive",true)) {
+                                    finish();
+                                }
                             }
                         }else {
                             finish();
@@ -294,7 +336,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
             }
         };
-        mautoStart = mpref.getBoolean("autoStartStop",false);
+
         if(mautoStart) {
             Intent batteryStatus = this.registerReceiver(smsReceiver, ifilter);
             // here we start another service to catch the battery signal.
@@ -359,8 +401,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     }
 
-    /* Method Definition*/
-
     /** A safe way to get an instance of the Camera object. */
     public static Camera getCameraInstance(){
         Camera c = null;
@@ -399,7 +439,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
     }
 
     public static boolean prepareVideoRecorder(){
-
         // Step 1: Unlock and set camera to MediaRecorder
         if(mCamera == null) {
             mCamera = getCameraInstance();
@@ -424,9 +463,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }else {
             return false;
         }
-
-        // Step 5: Set the preview output
-        mMediaRecorder.setPreviewDisplay(mPreview.getHolder().getSurface());
+        if(!surfacePreviewDetroyed) {
+            // Step 5: Set the preview output
+            mMediaRecorder.setPreviewDisplay(mPreview.getHolder().getSurface());
+        }
 
         // Step 6: Prepare configured MediaRecorder
         try {
@@ -602,7 +642,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             recordTimer.start();
         }else{
             // If recordTimer is null then we run it
-            recordTimer = new CountDownTimer(600000, 1000) {
+            recordTimer = new CountDownTimer(recordDuration*60*1000, 1000) {
                 long minute;
                 long second;
                 public void onTick(long millisUntilFinished) {
