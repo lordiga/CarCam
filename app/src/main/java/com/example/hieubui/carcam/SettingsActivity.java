@@ -192,6 +192,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             bindPreferenceSummaryToValue(findPreference("recordDuration"));
             bindPreferenceSummaryToValue(findPreference("maxSpeed"));
             bindPreferenceSummaryToValue(findPreference("availableStorage"));
+            bindPreferenceSummaryToValue(findPreference("emergencyNumber"));
             bindPreferenceSummaryToValue(findPreference("onScreenDuration"));
 
         }

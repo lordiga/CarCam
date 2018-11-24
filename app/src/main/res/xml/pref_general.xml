@@ -42,7 +42,7 @@
 
 
     <ListPreference
-        android:defaultValue="30000"
+        android:defaultValue="@string/pref_default_on_screen_duration_value"
         android:entries="@array/pref_on_screen_duration_item"
         android:entryValues="@array/pref_on_screen_duration_value"
         android:key="@string/pref_key_on_screen_duration"
@@ -72,5 +72,16 @@
         android:singleLine="true"
         android:summary="@string/pref_description_available_storage"
         android:title="@string/pref_title_available_storage" />
+
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_emergency_number"
+        android:inputType="textCapWords"
+        android:key="@string/pref_key_emergency_number"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_emergency_number"
+        android:title="@string/pref_title_emergency_number"/>
 
 </PreferenceScreen>

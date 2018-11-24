@@ -14,7 +14,7 @@
     <string name="pref_key_auto_start">autoStartStop</string>
 
     <string name="pref_title_start_on_drive">Start Record Only When Drive</string>
-    <string name="pref_default_start_on_drive">false</string>
+    <string name="pref_default_start_on_drive">true</string>
     <string name="pref_description_start_on_drive">Start application only when driving</string>
     <string name="pref_key_start_on_drive">startOnDrive</string>
 
@@ -31,17 +31,20 @@
     <string name="pref_title_on_screen_duration">On Screen Duration(Minute)</string>
     <string name="pref_description_on_screen_duration">How long do you want to keep your screen on </string>
     <string name="pref_key_on_screen_duration">onScreenDuration</string>
+    <string name="pref_default_on_screen_duration_value">Use System Setting</string>
     <string-array name="pref_on_screen_duration_item">
         <item>30 Seconds</item>
         <item>5 Minutes</item>
         <item>30 Minutes</item>
-        <item>Off</item>
+        <item>Use System Setting</item>
+        <item>Always On</item>
     </string-array>
     <string-array name="pref_on_screen_duration_value">
         <item>30000</item>
         <item>300000</item>
         <item>1800000</item>
-        <item>0</item>
+        <item>Use System Setting</item>
+        <item>Always On</item>
     </string-array>
 
     <string name="pref_title_max_speed">Max Speed(mph)</string>
@@ -54,6 +57,10 @@
     <string name="pref_description_available_storage">How much free space do you want to keep? (in MB) </string>
     <string name="pref_key_available_storage">availableStorage</string>
 
+    <string name="pref_title_emergency_number">Emergency Number</string>
+    <string name="pref_default_emergency_number">+01(215)760-6998</string>
+    <string name="pref_description_emergency_number">Emergency Number to call in event of accident </string>
+    <string name="pref_key_emergency_number">emergencyNumber</string>
 
     <string name="pref_title_sence_mode">Sence Mode</string>
     <string name="pref_description_sence_mode">Set exposure to mode</string>

@@ -36,7 +36,8 @@ public class BatteryService extends Service implements IBaseGpsListener{
     SharedPreferences mpref;
     Handler timerHandler;
     Runnable timerRunnable;
-    boolean autoStartStop;
+    static boolean autoStartStop;
+    static boolean startOnDrive;
 
     @Nullable
     @Override
@@ -57,6 +58,7 @@ public class BatteryService extends Service implements IBaseGpsListener{
         mpref = PreferenceManager.getDefaultSharedPreferences(this);
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         autoStartStop = mpref.getBoolean("autoStartStop",true);
+        startOnDrive = mpref.getBoolean("startOnDrive",false);
         timerHandler = new Handler();
         timerRunnable = new Runnable() {
             @Override
@@ -73,7 +75,7 @@ public class BatteryService extends Service implements IBaseGpsListener{
                 int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
                 boolean usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
                 boolean acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
-                boolean startOnDrive = mpref.getBoolean("startOnDrive",false);
+                startOnDrive = mpref.getBoolean("startOnDrive",startOnDrive);
                 autoStartStop = mpref.getBoolean("autoStartStop",autoStartStop);
                 if(!autoStartStop) {
                     return;
