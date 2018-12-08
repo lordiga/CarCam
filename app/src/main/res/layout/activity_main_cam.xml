@@ -6,36 +6,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0099cc"
-    android:keepScreenOn="true"
     tools:context=".MainCam">
+
     <FrameLayout
         android:id="@+id/camera_preview"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:layout_alignParentStart="true"
-        android:layout_alignParentLeft="true"
         android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
         android:layout_weight="1" />
 
-    <Button
-        android:id="@+id/button_capture"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
-        android:layout_gravity="center"
-        android:layout_marginTop="12dp"
-        android:text="Capture" />
-
-    <Button
+    <ImageButton
         android:id="@+id/button_service"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
+        android:layout_width="83dp"
+        android:layout_height="71dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
         android:layout_gravity="center"
-        android:layout_marginTop="125dp"
-        android:text="Start_Service" />
+        android:background="@android:drawable/presence_video_online" />
 
     <TextView
         android:id="@+id/txtCurrentSpeed"
@@ -56,4 +46,14 @@
         android:text="00:00/00:00"
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:textColor="#FF0000" />
+
+    <ImageButton
+        android:id="@+id/setting"
+        android:layout_width="37dp"
+        android:layout_height="39dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:background="@drawable/setting_512" />
+
 </RelativeLayout>
