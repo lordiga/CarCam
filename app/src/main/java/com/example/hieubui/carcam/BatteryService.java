@@ -29,8 +29,10 @@ import java.util.Locale;
 public class BatteryService extends Service implements IBaseGpsListener{
 
     String previousCharging = "Initial";
-    IntentFilter ifilter ;
-    BroadcastReceiver smsReceiver ;
+    IntentFilter batteryChangeFilter ;
+    IntentFilter getBatteryLowFilter ;
+    BroadcastReceiver batteryChangeReceiver;
+    BroadcastReceiver batteryLowReceiver;
     LocationManager locationManager;
     Boolean noToYesCharge = false;
     SharedPreferences mpref;
@@ -38,6 +40,7 @@ public class BatteryService extends Service implements IBaseGpsListener{
     Runnable timerRunnable;
     static boolean autoStartStop;
     static boolean startOnDrive;
+    boolean batterLow = false;
 
     @Nullable
     @Override
@@ -68,19 +71,28 @@ public class BatteryService extends Service implements IBaseGpsListener{
                 }
             }
         };
-        ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);;
-        smsReceiver = new BroadcastReceiver(){
+        getBatteryLowFilter = new IntentFilter(Intent.ACTION_BATTERY_LOW);
+        batteryLowReceiver  = new BroadcastReceiver(){
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                batterLow = true;
+            }
+        };
+        this.registerReceiver(batteryLowReceiver,getBatteryLowFilter);
+        batteryChangeFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        batteryChangeReceiver = new BroadcastReceiver(){
             @Override
             public void onReceive(Context context, Intent intent) {
                 int chargePlug = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
                 boolean usbCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_USB;
                 boolean acCharge = chargePlug == BatteryManager.BATTERY_PLUGGED_AC;
+
                 startOnDrive = mpref.getBoolean("startOnDrive",startOnDrive);
                 autoStartStop = mpref.getBoolean("autoStartStop",autoStartStop);
                 if(!autoStartStop) {
                     return;
                 }
-                if(usbCharge || acCharge ){
+                if((usbCharge || acCharge ) && !batterLow){
                     Log.d("Battery Service", "BatterySerive detect phone is charging");
                     if(noToYesCharge) {
                         noToYesCharge = false;
@@ -120,7 +132,8 @@ public class BatteryService extends Service implements IBaseGpsListener{
                 }
             }
         };
-        Intent batteryStatus = this.registerReceiver(smsReceiver, ifilter);
+        this.registerReceiver(batteryChangeReceiver, batteryChangeFilter);
+
     }
 
     public boolean isAppRunning(final String packageName) {

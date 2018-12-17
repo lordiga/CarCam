@@ -66,7 +66,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
     static SensorManager mySensorManager;
     static SensorEventListener LightSensorListener;
     static boolean darkLight;
-    static String senceMode;
+    static boolean extremeDarkLight;
+    static int senceMode;
     static CountDownTimer recordTimer;
     static Camera mCamera;
     static CameraPreview mPreview;
@@ -94,13 +95,14 @@ public class MainCam extends Activity implements IBaseGpsListener {
     String onScreenDuration;
     int previousOnScreenDuration;
     static String emergencyNumber;
-    SharedPreferences mpref;
+    static SharedPreferences  mpref;
+    static MainCam MainCam;
+    static boolean firstRun;
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
 
         @Override
-        public void onServiceConnected(ComponentName className,
-                                       IBinder service) {
+        public void onServiceConnected(ComponentName className,IBinder service) {
             // We've bound to CameraService, cast the IBinder and get CameraService instance
             CameraService.CameraBinder binder = (CameraService.CameraBinder) service;
             mCameraService = binder.getService();
@@ -121,15 +123,17 @@ public class MainCam extends Activity implements IBaseGpsListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main_cam);
-
+        MainCam = this;
+        firstRun = true;
         /**Set up On screen duration*/
 
         mpref = PreferenceManager.getDefaultSharedPreferences(this);
         emergencyNumber = mpref.getString("emergencyNumber","+01911");
-        if (mpref.getString("onScreenDuration", "Use System Setting").compareTo("Always On") != -1) {
+        onScreenDuration = mpref.getString("onScreenDuration", "300000");
+        if (onScreenDuration.compareTo("Always On") == 0) {
             // User prefer to keep screen always on
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        } else if ((mpref.getString("onScreenDuration", "Use System Setting").compareTo("Use System Setting") == -1)) {
+        } else if (onScreenDuration.compareTo("Use System Setting") != 0) {
             // User want to set screen time off
             onScreenDuration = mpref.getString("onScreenDuration", "300000");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -158,9 +162,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
             params = mCamera.getParameters();
         }
         // Initiate Light sensor
-        senceMode = mpref.getString("senceMode", "");
-        darkLight = senceMode.compareTo("Night") == 0;
-        if (senceMode != null && (senceMode.compareTo("Auto") == 0)) {
+        senceMode = Integer.parseInt(mpref.getString("senceMode", "-1"));
+        darkLight = senceMode == 2;
+        if (senceMode == -1) {
             LightSensorListener = new SensorEventListener() {
                 @Override
                 public void onAccuracyChanged(Sensor sensor, int accuracy) {
@@ -169,10 +173,16 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
                 @Override
                 public void onSensorChanged(SensorEvent event) {
-                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150)) {
+                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150) && (event.values[0] > 5)) {
                         darkLight = true;
+                        extremeDarkLight = false;
                     } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)) {
-                        // Bright light now
+                        //Bright light now
+                        darkLight = false;
+                        extremeDarkLight = false;
+                    } else if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 5)) {
+                        //Extremely low light
+                        extremeDarkLight = true;
                         darkLight = false;
                     }
                 }
@@ -203,9 +213,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
         //Initiate alarm and maxspeed
         mp = MediaPlayer.create(this, R.raw.alarm);
         try {
-            maxSpeed = Integer.parseInt(mpref.getString("maxSpeed", ""));
+            maxSpeed = Integer.parseInt(mpref.getString("maxSpeed", "80"));
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "Invalid Max Speed. Using Default Value", Toast.LENGTH_SHORT).show();
             maxSpeed = 80;
         }
 
@@ -234,35 +243,19 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }
 
         //Initiate recorduration available storage
-
         try {
-            recordDuration = Integer.parseInt(mpref.getString("recordDuration", ""));
+            recordDuration = Integer.parseInt(mpref.getString("recordDuration", "10"));
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "Invalid Record Duration. Please Fix It In Setting. Using Default value", Toast.LENGTH_SHORT).show();
             recordDuration = 10;
         }
         try {
-            availableStorage = Integer.parseInt(mpref.getString("availableStorage", ""));
+            availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "Invalid Available Storage. Please Fix It In Setting. Using Default value", Toast.LENGTH_SHORT).show();
             availableStorage = 700;
         }
         // Initiate and start service timer for the first run
         startServiceTimer(recordDuration);
         startRecordTimer();
-        // Add Setting button
-
-        final ImageButton settingButton = (ImageButton) findViewById(R.id.setting);
-
-        settingButton.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        Intent settingIntent = new Intent(MainCam.this, SettingsActivity.class);
-                        startActivity(settingIntent);
-                    }
-                }
-        );
         // Add listener to service button
         final ImageButton serviceButton = (ImageButton) findViewById(R.id.button_service);
         serviceButton.setOnClickListener(
@@ -296,12 +289,37 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             stopServiceTimer();
                             // Stop recordingTimer
                             stopRecordTimer();
+                            recordTimer = null;
                             // Remove GPS update
                             if (locationManager != null) {
                                 locationManager.removeUpdates(MainCam.this);
                             }
                             serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
                         }
+                    }
+                }
+        );
+        // Add Setting button
+        final ImageButton settingButton = (ImageButton) findViewById(R.id.setting);
+        settingButton.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        if ((isServiceRun) && (isRecording)) {
+                            // If Camera is running we stop everything first
+                            stopCameraService();
+                            stopServiceTimer();
+                            // Stop recordingTimer
+                            stopRecordTimer();
+                            recordTimer = null;
+                            // Remove GPS update
+                            if (locationManager != null) {
+                                locationManager.removeUpdates(MainCam.this);
+                            }
+                            serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
+                        }
+                        Intent settingIntent = new Intent(MainCam.this, SettingsActivity.class);
+                        startActivity(settingIntent);
                     }
                 }
         );
@@ -363,10 +381,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
         super.onDestroy();
         // Revert system setting change
         // Update new setting to Battery Service
+        MainCam.firstRun = false;
         BatteryService.autoStartStop = mpref.getBoolean("autoStartStop", true);
         BatteryService.startOnDrive = mpref.getBoolean("startOnDrive", false);
-        if ((mpref.getString("onScreenDuration", "Use System Setting").compareTo("Always On") == -1) &&
-                (mpref.getString("onScreenDuration", "Use System Setting").compareTo("Use System Setting") == -1)) {
+        if ((mpref.getString("onScreenDuration", "Use System Setting").compareTo("Always On") != 0) &&
+                (mpref.getString("onScreenDuration", "Use System Setting").compareTo("Use System Setting") != 0)) {
             // User did use setting for screen time
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 boolean canWrite = Settings.System.canWrite(getApplicationContext());
@@ -460,7 +479,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         return c; // returns null if camera is unavailable
     }
 
-    public static void configSenseModeCamera(Camera.Parameters params, Camera mCamera, boolean darkLight) {
+    public static void configSenseModeCamera(Camera.Parameters params, Camera mCamera) {
         // set the focus mode
         List<String> focusModes = params.getSupportedFocusModes();
         if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
@@ -475,8 +494,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
             params.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
         }
         if(darkLight) {
-            params.setExposureCompensation((int) ((double) params.getMaxExposureCompensation() / 1.5));
-        }else{
+            params.setExposureCompensation((int)(params.getMaxExposureCompensation()/1.5));
+        }else if(extremeDarkLight) {
+            params.setExposureCompensation(params.getMaxExposureCompensation());
+        }
+        else{
             params.setExposureCompensation(0);
         }
         if (params.isVideoStabilizationSupported()) {
@@ -519,7 +541,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         try {
             mMediaRecorder.prepare();
             mCamera.lock();
-            configSenseModeCamera(params,mCamera,darkLight);
+            configSenseModeCamera(params,mCamera);
             mCamera.unlock();
         } catch (IllegalStateException e) {
             Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
@@ -577,7 +599,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
             if(listFiles.length > 1) {
                 listFiles[0].delete();
             }else {
-                //Toast.makeText(MainApp.getContext(),"Not enough available space!!!!",Toast.LENGTH_LONG).show();
                 return null;
             }
         }
@@ -599,6 +620,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     public void startCameraService() {
         if(mCameraService != null) {
+            updateSetting();
             mCameraService.startCamera();
             startRecordTimer();
         }
@@ -687,9 +709,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
             // Then we start it up
             recordTimer.cancel();
             recordTimer.start();
-        }else{
-            // If recordTimer is null then we run it
-            recordTimer = new CountDownTimer(recordDuration*60*1000, 1000) {
+        }else {
+            recordTimer = new CountDownTimer(recordDuration * 60 * 1000, 1000) {
                 long minute;
                 long second;
                 public void onTick(long millisUntilFinished) {
@@ -697,8 +718,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     second = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished) % 60;
                     txtRecordTimer.setText(minute + ":" + second + "/" + recordDuration + ":00");
                 }
+
                 public void onFinish() {
-                    txtRecordTimer.setText("00:00/10:00");
+                    txtRecordTimer.setText("00:00" + "/" + recordDuration + ":00");
                 }
             }.start();
         }
@@ -741,5 +763,92 @@ public class MainCam extends Activity implements IBaseGpsListener {
             }        }else {
             return 0;
         }
+    }
+
+    public void updateSetting() {
+        // Emergency Number
+        emergencyNumber = mpref.getString("emergencyNumber","+01911");
+        //Sence Mode
+        senceMode = Integer.parseInt(mpref.getString("senceMode", "-1"));
+        darkLight = senceMode == 2;
+        if (senceMode == -1) {
+            LightSensorListener = new SensorEventListener() {
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                }
+
+                @Override
+                public void onSensorChanged(SensorEvent event) {
+                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150)) {
+                        darkLight = true;
+                    } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)) {
+                        // Bright light now
+                        darkLight = false;
+                    }
+                }
+            };
+            mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+            Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+            if (LightSensor != null) {
+                mySensorManager.registerListener(
+                        LightSensorListener,
+                        LightSensor,
+                        90000000);
+            } else {
+                Log.d("MainCam", "Sensor.TYPE_LIGHT NOT Available");
+            }
+        }
+        //Max Speed
+        try {
+            maxSpeed = Integer.parseInt(mpref.getString("maxSpeed", "80"));
+        } catch (NumberFormatException e) {
+            maxSpeed = 80;
+        }
+        //On Screen Duration
+        onScreenDuration = mpref.getString("onScreenDuration", "300000");
+        if (onScreenDuration.compareTo("Always On") == 0) {
+            //User prefer to keep screen always on
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else if (onScreenDuration.compareTo("Use System Setting") != 0) {
+            //User want to set screen time off
+            onScreenDuration = mpref.getString("onScreenDuration", "300000");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                boolean canWrite = Settings.System.canWrite(getApplicationContext());
+                try {
+                    previousOnScreenDuration = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
+                } catch (Settings.SettingNotFoundException e) {
+                    e.printStackTrace();
+                }
+                if (canWrite) {
+                    android.provider.Settings.System.putInt(
+                            getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
+                } else {
+                    Intent systemCanWrite = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
+                    systemCanWrite.setData(Uri.parse("package:" + getApplicationContext().getPackageName()));
+                    startActivity(systemCanWrite);
+                }
+            } else {
+                android.provider.Settings.System.putInt(
+                        getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
+            }
+        }else{
+            //We will clear the flag and use system setting
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+        //Record Duration
+        try {
+            recordDuration = Integer.parseInt(mpref.getString("recordDuration", "10"));
+        } catch (NumberFormatException e) {
+            recordDuration = 10;
+        }
+        //Available Storage
+        try {
+            availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
+        } catch (NumberFormatException e) {
+            availableStorage = 700;
+        }
+        //Auto Start/Stop
+        mautoStart = mpref.getBoolean("autoStartStop", true);
     }
 }

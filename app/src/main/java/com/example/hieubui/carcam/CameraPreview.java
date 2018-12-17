@@ -53,11 +53,11 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         try {
             mCamera.setPreviewDisplay(holder);
             mCamera.startPreview();
-            if(!MainCam.isRecording && !MainCam.isServiceRun) {
+            if(!MainCam.isRecording && !MainCam.isServiceRun && MainCam.firstRun) {
                 startCameraService();
                 ImageButton serviceButton = (ImageButton) ((Activity) mcontext).findViewById(R.id.button_service);
                 serviceButton.setBackgroundResource(R.drawable.stop_record);
-
+                MainCam.firstRun = false;
             }
         } catch (IOException e) {
             Log.d(TAG, "Error setting camera preview: " + e.getMessage());

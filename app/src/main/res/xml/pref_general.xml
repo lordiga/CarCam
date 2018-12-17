@@ -23,7 +23,7 @@
         android:defaultValue="-1"
         android:entries="@array/pref_sence_mode_item"
         android:entryValues="@array/pref_sence_mode_value"
-        android:key="senceMode"
+        android:key="@string/pref_key_sence_mode"
         android:negativeButtonText="@null"
         android:positiveButtonText="@null"
         android:summary="@string/pref_description_sence_mode"
@@ -50,7 +50,6 @@
         android:positiveButtonText="@null"
         android:summary="@string/pref_description_on_screen_duration"
         android:title="@string/pref_title_on_screen_duration" />
-
     <EditTextPreference
         android:capitalize="words"
         android:defaultValue="@string/pref_default_max_speed"
