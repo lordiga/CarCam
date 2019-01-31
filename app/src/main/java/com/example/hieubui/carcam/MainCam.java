@@ -3,7 +3,6 @@ package com.example.hieubui.carcam;
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.Application;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -11,10 +10,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
-import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
+import android.hardware.camera2.*;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -28,24 +26,18 @@ import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.CountDownTimer;
-import android.os.Environment;
 import android.os.IBinder;
-import android.os.PowerManager;
 import android.os.StatFs;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Surface;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
-
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -54,43 +46,28 @@ import java.util.Date;
 import java.util.Formatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
-
 import static android.content.ContentValues.TAG;
-import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
+import static com.example.hieubui.carcam.CameraService.isRecording;
+import static com.example.hieubui.carcam.CameraService.isServiceRun;
+
 
 public class MainCam extends Activity implements IBaseGpsListener {
-    static SensorManager mySensorManager;
-    static SensorEventListener LightSensorListener;
-    static boolean darkLight;
-    static boolean extremeDarkLight;
-    static int senceMode;
+
     static CountDownTimer recordTimer;
-    static Camera mCamera;
-    static CameraPreview mPreview;
-    static MediaRecorder mMediaRecorder;
-    static boolean surfacePreviewDetroyed = false;
-    static boolean isRecording = false;
-    static CameraService mCameraService;
-    public static final int MEDIA_TYPE_IMAGE = 1;
-    public static final int MEDIA_TYPE_VIDEO = 2;
+
     static boolean mBound = false;
-    static Timer mServiceTimer;
-    static TimerTask mServiceTimerTask;
-    static boolean isServiceRun = false;
     static int recordDuration;
     static int maxSpeed;
     static int currentSpeed;
     static int alarmCount;
     static int maxAlarmCount;
-    static int availableStorage;
-    static Camera.Parameters params;
     static boolean previousCharging = false;
     IntentFilter ifilter;
     BroadcastReceiver smsReceiver;
+    static CameraService mCameraService;
     static boolean mautoStart;
     String onScreenDuration;
     int previousOnScreenDuration;
@@ -98,9 +75,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
     static SharedPreferences  mpref;
     static MainCam MainCam;
     static boolean firstRun;
+    static Timer mServiceTimer;
+    static TimerTask mServiceTimerTask;
     /** Defines callbacks for service binding, passed to bindService() */
     static ServiceConnection mConnection = new ServiceConnection() {
-
         @Override
         public void onServiceConnected(ComponentName className,IBinder service) {
             // We've bound to CameraService, cast the IBinder and get CameraService instance
@@ -108,7 +86,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
             mCameraService = binder.getService();
             mBound = true;
         }
-
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
             mBound = false;
@@ -125,10 +102,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
         setContentView(R.layout.activity_main_cam);
         MainCam = this;
         firstRun = true;
-        /**Set up On screen duration*/
-
         mpref = PreferenceManager.getDefaultSharedPreferences(this);
         emergencyNumber = mpref.getString("emergencyNumber","+01911");
+        /**Set up On screen duration*/
         onScreenDuration = mpref.getString("onScreenDuration", "300000");
         if (onScreenDuration.compareTo("Always On") == 0) {
             // User prefer to keep screen always on
@@ -152,63 +128,24 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     startActivity(systemCanWrite);
                 }
             } else {
+                try {
+                    previousOnScreenDuration = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
+                } catch (Settings.SettingNotFoundException e) {
+                    e.printStackTrace();
+                }
                 android.provider.Settings.System.putInt(
                         getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
             }
         }
-        // Create an instance of Camera
-        mCamera = getCameraInstance();
-        if (mCamera != null) {
-            params = mCamera.getParameters();
-        }
-        // Initiate Light sensor
-        senceMode = Integer.parseInt(mpref.getString("senceMode", "-1"));
-        darkLight = senceMode == 2;
-        if (senceMode == -1) {
-            LightSensorListener = new SensorEventListener() {
-                @Override
-                public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
-                }
-
-                @Override
-                public void onSensorChanged(SensorEvent event) {
-                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150) && (event.values[0] > 5)) {
-                        darkLight = true;
-                        extremeDarkLight = false;
-                    } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)) {
-                        //Bright light now
-                        darkLight = false;
-                        extremeDarkLight = false;
-                    } else if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 5)) {
-                        //Extremely low light
-                        extremeDarkLight = true;
-                        darkLight = false;
-                    }
-                }
-            };
-            mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-            Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-            if (LightSensor != null) {
-                mySensorManager.registerListener(
-                        LightSensorListener,
-                        LightSensor,
-                        90000000);
-            } else {
-                Log.d("MainCam", "Sensor.TYPE_LIGHT NOT Available");
-            }
-        }
-        mMediaRecorder = new MediaRecorder();
-
-        // Create our Preview view and set it as the content of our activity.
-        mPreview = new CameraPreview(this, mCamera);
-        FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
-        preview.addView(mPreview);
-
-        //Binding CameraService to main thread
+        // Binding CameraService to main thread
         // Bind to LocalService
         final Intent intent = new Intent(this, CameraService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        // Start camera service first time
+        Log.d("Camera Preview","Starting Service for first run");
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        this.startService(intent);
 
         //Initiate alarm and maxspeed
         mp = MediaPlayer.create(this, R.raw.alarm);
@@ -223,13 +160,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
         //Initiate GPS and Speedometer
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         try {
@@ -247,11 +177,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
             recordDuration = Integer.parseInt(mpref.getString("recordDuration", "10"));
         } catch (NumberFormatException e) {
             recordDuration = 10;
-        }
-        try {
-            availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
-        } catch (NumberFormatException e) {
-            availableStorage = 700;
         }
         // Initiate and start service timer for the first run
         startServiceTimer(recordDuration);
@@ -389,7 +314,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             // User did use setting for screen time
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 boolean canWrite = Settings.System.canWrite(getApplicationContext());
-                if (canWrite) {
+                if (canWrite && previousOnScreenDuration > 0 ) {
                     android.provider.Settings.System.putInt(
                             getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, previousOnScreenDuration);
                 } else {
@@ -398,8 +323,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     startActivity(systemCanWrite);
                 }
             } else {
-                android.provider.Settings.System.putInt(
-                        getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, previousOnScreenDuration);
+                if(previousOnScreenDuration > 0) {
+                    android.provider.Settings.System.putInt(
+                            getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, previousOnScreenDuration);
+                }
             }
         }
         if (isRecording) {
@@ -414,7 +341,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 }
             }
         }
-        // Here we start nullify everything
+        // Here we start nullify everything`
         System.exit(0);
     }
 
@@ -467,155 +394,30 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     }
 
-    /** A safe way to get an instance of the Camera object. */
-    public static Camera getCameraInstance(){
-        Camera c = null;
-        try {
-            c = Camera.open(); // attempt to get a Camera instance
-        }
-        catch (Exception e){
-            // Camera is not available (in use or does not exist)
-        }
-        return c; // returns null if camera is unavailable
-    }
+    private void updateSpeed(CLocation location) {
+        // TODO Auto-generated method stub
+        float nCurrentSpeed = 0;
 
-    public static void configSenseModeCamera(Camera.Parameters params, Camera mCamera) {
-        // set the focus mode
-        List<String> focusModes = params.getSupportedFocusModes();
-        if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
-            params.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
-        }
-        List<String> whiteBalance = params.getSupportedWhiteBalance();
-        if (whiteBalance.contains(Camera.Parameters.WHITE_BALANCE_AUTO)) {
-            params.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
-        }
-        List<String> sceneMode = params.getSupportedSceneModes();
-        if (sceneMode.contains(Camera.Parameters.SCENE_MODE_AUTO)) {
-            params.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
-        }
-        if(darkLight) {
-            params.setExposureCompensation((int)(params.getMaxExposureCompensation()/1.5));
-        }else if(extremeDarkLight) {
-            params.setExposureCompensation(params.getMaxExposureCompensation());
-        }
-        else{
-            params.setExposureCompensation(0);
-        }
-        if (params.isVideoStabilizationSupported()) {
-            params.setVideoStabilization(true);
-        }
-        mCamera.setParameters(params);
-    }
-
-    public static boolean prepareVideoRecorder(){
-        // Step 1: Unlock and set camera to MediaRecorder
-        if(mCamera == null) {
-            mCamera = getCameraInstance();
-            params = mCamera.getParameters();
-        }
-        mCamera.unlock();
-        if(mMediaRecorder == null) {
-            mMediaRecorder = new MediaRecorder();
-        }
-        mMediaRecorder.setCamera(mCamera);
-
-        // Step 2: Set sources
-        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
-        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-
-        // Step 3: Set a CamcorderProfile (requires API Level 8 or higher)
-        mMediaRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_480P));
-
-        // Step 4: Set output file
-        if(getOutputMediaFile(MEDIA_TYPE_VIDEO,availableStorage) != null) {
-            mMediaRecorder.setOutputFile(getOutputMediaFile(MEDIA_TYPE_VIDEO,availableStorage).toString());
-        }else {
-            return false;
-        }
-        if(!surfacePreviewDetroyed) {
-            // Step 5: Set the preview output
-            mMediaRecorder.setPreviewDisplay(mPreview.getHolder().getSurface());
+        if(location != null)
+        {
+            nCurrentSpeed = location.getSpeed();
         }
 
-        // Step 6: Prepare configured MediaRecorder
-        try {
-            mMediaRecorder.prepare();
-            mCamera.lock();
-            configSenseModeCamera(params,mCamera);
-            mCamera.unlock();
-        } catch (IllegalStateException e) {
-            Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
-            releaseMediaRecorder();
-            return false;
-        } catch (IOException e) {
-            Log.d(TAG, "IOException preparing MediaRecorder: " + e.getMessage());
-            releaseMediaRecorder();
-            return false;
+        Formatter fmt = new Formatter(new StringBuilder());
+        fmt.format(Locale.US, "%5.1f", nCurrentSpeed);
+        String strCurrentSpeed = fmt.toString();
+        strCurrentSpeed = strCurrentSpeed.replace(' ', '0');
+        double currentSpeed = Double.parseDouble(strCurrentSpeed);
+        if((currentSpeed >= maxSpeed) && (alarmCount < maxAlarmCount)) {
+            alarmCount++;
+            mp.start();
+        }else if(currentSpeed < maxSpeed) {
+            alarmCount = 0;
         }
-        return true;
-    }
-
-    public static void releaseMediaRecorder(){
-        if (mMediaRecorder != null) {
-            mMediaRecorder.reset();   // clear recorder configuration
-            mMediaRecorder.release(); // release the recorder object
-            mMediaRecorder = null;
-            mCamera.lock();           // lock camera for later use
-        }
-    }
-
-    public static void releaseCamera(){
-        if (mCamera != null){
-            mCamera.release();        // release the camera for other applications
-            mCamera = null;
-        }
-    }
-
-    /** Create a File for saving an image or video */
-    public static File getOutputMediaFile(int type, int availableStorage){
-        // To be safe, you should check that the SDCard is mounted
-        // using Environment.getExternalStorageState() before doing this.
-
-        File mediaStorageDir = new File("/storage/sdcard0/CarCam");
-        // This location works best if you want the created images to be shared
-        // between applications and persist after your app has been uninstalled.
-
-        // Create the storage directory if it does not exist
-        if (! mediaStorageDir.exists()){
-            if (! mediaStorageDir.mkdirs()){
-                Log.d("CarCam", "failed to create directory");
-                return null;
-            }
-        }
-        // Sorting Save directory and delete file if needed
-        //sortSaveDir(mediaStorageDir,maxSize,recordDuration);
-        // Check if we need to delete file
-        // Storage will save 700mb at least for free space
-        while(getAvailableInternalMemorySize() < availableStorage) {
-            // If get have less than 1Gb free
-            // We will start delete files
-            File[] listFiles =  mediaStorageDir.listFiles();
-            Arrays.sort(listFiles);
-            if(listFiles.length > 1) {
-                listFiles[0].delete();
-            }else {
-                return null;
-            }
-        }
-        // Create a media file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        File mediaFile;
-        if (type == MEDIA_TYPE_IMAGE){
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-                    "IMG_"+ timeStamp + ".jpg");
-        } else if(type == MEDIA_TYPE_VIDEO) {
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-                    "VID_"+timeStamp+".mp4");
-        } else {
-            return null;
-        }
-
-        return mediaFile;
+        MainCam.currentSpeed = (int) currentSpeed;
+        String strUnits = "mph";
+        TextView txtCurrentSpeed = (TextView) this.findViewById(R.id.txtCurrentSpeed);
+        txtCurrentSpeed.setText(strCurrentSpeed + " " + strUnits);
     }
 
     public void startCameraService() {
@@ -664,42 +466,16 @@ public class MainCam extends Activity implements IBaseGpsListener {
                         }
                     });
                 }
-                    Log.d("TimerTask","Start camera in service timer task");
-                    startCameraService();
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            findViewById(R.id.button_service).setBackgroundResource(R.drawable.stop_record);
-                        }
-                    });
-                }
+                Log.d("TimerTask","Start camera in service timer task");
+                startCameraService();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        findViewById(R.id.button_service).setBackgroundResource(R.drawable.stop_record);
+                    }
+                });
+            }
         };
-    }
-
-    private void updateSpeed(CLocation location) {
-        // TODO Auto-generated method stub
-        float nCurrentSpeed = 0;
-
-        if(location != null)
-        {
-            nCurrentSpeed = location.getSpeed();
-        }
-
-        Formatter fmt = new Formatter(new StringBuilder());
-        fmt.format(Locale.US, "%5.1f", nCurrentSpeed);
-        String strCurrentSpeed = fmt.toString();
-        strCurrentSpeed = strCurrentSpeed.replace(' ', '0');
-        double currentSpeed = Double.parseDouble(strCurrentSpeed);
-        if((currentSpeed >= maxSpeed) && (alarmCount < maxAlarmCount)) {
-            alarmCount++;
-            mp.start();
-        }else if(currentSpeed < maxSpeed) {
-            alarmCount = 0;
-        }
-        MainCam.currentSpeed = (int) currentSpeed;
-        String strUnits = "mph";
-        TextView txtCurrentSpeed = (TextView) this.findViewById(R.id.txtCurrentSpeed);
-        txtCurrentSpeed.setText(strCurrentSpeed + " " + strUnits);
     }
 
     public void startRecordTimer() {
@@ -742,37 +518,14 @@ public class MainCam extends Activity implements IBaseGpsListener {
         return false;
     }
 
-    public static int getAvailableInternalMemorySize() {
-        File path = new File("/storage/sdcard0/");
-        StatFs stat = new StatFs(path.getPath());
-        long blockSize = stat.getBlockSize();
-        long availableBlocks = stat.getAvailableBlocks();
-        return formatSize(availableBlocks * blockSize);
-    }
-
-    public static int formatSize(long size) {
-        if (size >= 1024) {
-            //Has more than 1 KB
-            size /= 1024;
-            if (size >= 1024) {
-                // Has more than 1 MB
-                size /= 1024;
-                return (int)size;
-            }else {
-                return 1;
-            }        }else {
-            return 0;
-        }
-    }
-
     public void updateSetting() {
         // Emergency Number
         emergencyNumber = mpref.getString("emergencyNumber","+01911");
         //Sence Mode
-        senceMode = Integer.parseInt(mpref.getString("senceMode", "-1"));
-        darkLight = senceMode == 2;
-        if (senceMode == -1) {
-            LightSensorListener = new SensorEventListener() {
+        CameraService.senceMode = Integer.parseInt(mpref.getString("senceMode", "-1"));
+        CameraService.darkLight = CameraService.senceMode == 2;
+        if (CameraService.senceMode == -1) {
+            CameraService.LightSensorListener = new SensorEventListener() {
                 @Override
                 public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
@@ -781,18 +534,18 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 @Override
                 public void onSensorChanged(SensorEvent event) {
                     if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150)) {
-                        darkLight = true;
+                        CameraService.darkLight = true;
                     } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)) {
                         // Bright light now
-                        darkLight = false;
+                        CameraService.darkLight = false;
                     }
                 }
             };
-            mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-            Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+            CameraService.mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+            Sensor LightSensor = CameraService.mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
             if (LightSensor != null) {
-                mySensorManager.registerListener(
-                        LightSensorListener,
+                CameraService.mySensorManager.registerListener(
+                        CameraService.LightSensorListener,
                         LightSensor,
                         90000000);
             } else {
@@ -844,11 +597,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }
         //Available Storage
         try {
-            availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
+            CameraService.availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
         } catch (NumberFormatException e) {
-            availableStorage = 700;
+            CameraService.availableStorage = 700;
         }
         //Auto Start/Stop
         mautoStart = mpref.getBoolean("autoStartStop", true);
     }
+
 }
