@@ -23,29 +23,30 @@
     <string name="pref_description_keep_record_on_drive">Keep recording if disconnect to power source while driving</string>
     <string name="pref_key_keep_record_on_drive">keepRecordOnDrive</string>
 
+    <string name="pref_title_open_on_startup">Open on Startup</string>
+    <string name="pref_default_open_on_startup">true</string>
+    <string name="pref_description_open_on_startup">Open Application on Background on Startup</string>
+    <string name="pref_key_open_on_startup">openOnStartup</string>
+
+    <string name="pref_title_shutdown_on_close">Shutdown on Close (Only on Root)</string>
+    <string name="pref_default_shutdown_on_close">false</string>
+    <string name="pref_description_shutdown_on_close">Shut down the phone on closeing application</string>
+    <string name="pref_key_shutdown_on_close">shutdownOnClose</string>
+
     <string name="pref_title_record_time">Record Time(Minute)</string>
     <string name="pref_default_record_time">10</string>
     <string name="pref_description_record_time">Recording time to save to file(In Minute) </string>
     <string name="pref_key_keep_record_time">recordDuration</string>
 
-    <string name="pref_title_on_screen_duration">On Screen Duration(Minute)</string>
-    <string name="pref_description_on_screen_duration">How long do you want to keep your screen on </string>
-    <string name="pref_key_on_screen_duration">onScreenDuration</string>
-    <string name="pref_default_on_screen_duration_value">300000</string>
-    <string-array name="pref_on_screen_duration_item">
-        <item>30 Seconds</item>
-        <item>5 Minutes</item>
-        <item>30 Minutes</item>
-        <item>Use System Setting</item>
-        <item>Always On</item>
-    </string-array>
-    <string-array name="pref_on_screen_duration_value">
-        <item>30000</item>
-        <item>300000</item>
-        <item>1800000</item>
-        <item>Use System Setting</item>
-        <item>Always On</item>
-    </string-array>
+    <string name="pref_title_keep_screen_on">Always Turn On Screen</string>
+    <string name="pref_default_keep_screen_on_value">false</string>
+    <string name="pref_description_keep_screen_on">Keep screen on when open the application</string>
+    <string name="pref_key_keep_screen_on">keepScreenOn</string>
+
+    <string name="pref_title_maximum_brightness">Maximum Brightness</string>
+    <string name="pref_default_maximum_brightness_value">false</string>
+    <string name="pref_description_maximum_brightness">Change phone brightness to 100%</string>
+    <string name="pref_key_maximum_brightness">maximumBrightness</string>
 
     <string name="pref_title_max_speed">Max Speed(mph)</string>
     <string name="pref_default_max_speed">80</string>

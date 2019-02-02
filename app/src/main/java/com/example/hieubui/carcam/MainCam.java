@@ -19,6 +19,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.location.LocationProvider;
 import android.media.CamcorderProfile;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
@@ -62,6 +63,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     static int recordDuration;
     static int maxSpeed;
     static int currentSpeed;
+    static int GPSStatus;
     static int alarmCount;
     static int maxAlarmCount;
     static boolean previousCharging = false;
@@ -69,7 +71,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
     BroadcastReceiver smsReceiver;
     static CameraService mCameraService;
     static boolean mautoStart;
-    String onScreenDuration;
+    boolean keepScreenOn;
+    boolean maximumBrightness;
+    static boolean shutdownOnClose;
+    static boolean openOnStartup;
     int previousOnScreenDuration;
     static String emergencyNumber;
     static SharedPreferences  mpref;
@@ -104,39 +109,34 @@ public class MainCam extends Activity implements IBaseGpsListener {
         firstRun = true;
         mpref = PreferenceManager.getDefaultSharedPreferences(this);
         emergencyNumber = mpref.getString("emergencyNumber","+01911");
-        /**Set up On screen duration*/
-        onScreenDuration = mpref.getString("onScreenDuration", "300000");
-        if (onScreenDuration.compareTo("Always On") == 0) {
-            // User prefer to keep screen always on
+        /**Set up keep screen on*/
+        keepScreenOn = mpref.getBoolean("keepScreenOn", false);
+        if(keepScreenOn) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        } else if (onScreenDuration.compareTo("Use System Setting") != 0) {
-            // User want to set screen time off
-            onScreenDuration = mpref.getString("onScreenDuration", "300000");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                boolean canWrite = Settings.System.canWrite(getApplicationContext());
-                try {
-                    previousOnScreenDuration = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
-                } catch (Settings.SettingNotFoundException e) {
-                    e.printStackTrace();
-                }
-                if (canWrite) {
-                    android.provider.Settings.System.putInt(
-                            getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
-                } else {
-                    Intent systemCanWrite = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
-                    systemCanWrite.setData(Uri.parse("package:" + getApplicationContext().getPackageName()));
-                    startActivity(systemCanWrite);
-                }
-            } else {
-                try {
-                    previousOnScreenDuration = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
-                } catch (Settings.SettingNotFoundException e) {
-                    e.printStackTrace();
-                }
-                android.provider.Settings.System.putInt(
-                        getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
-            }
+        }else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+
+        /**Set up maximum brightness*/
+        maximumBrightness = mpref.getBoolean("maximumBrightness", false);
+        if(keepScreenOn) {
+            getWindow().getAttributes().screenBrightness = 1;
+        }else {
+            getWindow().getAttributes().screenBrightness = -1;
+        }
+        PackageManager pmOpenOnStartup  = this.getPackageManager();
+        ComponentName cnOpenOnStartup = new ComponentName(this, StartAtBootReceiver.class);
+        openOnStartup = mpref.getBoolean("openOnStartup", false);
+        if(openOnStartup) {
+            pmOpenOnStartup.setComponentEnabledSetting(cnOpenOnStartup,PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+        }else{
+            pmOpenOnStartup.setComponentEnabledSetting(cnOpenOnStartup,PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP);
+        }
+
+        /**Set up shutdown on close flag. This happen in onDestroy() call back*/
+        shutdownOnClose = mpref.getBoolean("shutdownOnClose", false);
 
         // Binding CameraService to main thread
         // Bind to LocalService
@@ -267,10 +267,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
                         //If it's not charging now and it used to charge.
                         // We check if speed is 0. If speed is zero
                         // That means we stop so stop camera too
+                        // sometime GPS is acting up and it keep the old speed
+                        // Even though it's not working so we need to check for that case
                         Log.d("Battery Service in Main", "Not Charging");
                         if (locationManager != null) {
                             // MAke sure we don't get fooled by null location
-                            if (MainCam.currentSpeed < 1) {
+                            if ((MainCam.currentSpeed < 1)||(GPSStatus != LocationProvider.AVAILABLE)) {
                                 // Stop the camera
                                 Log.d("Battery Service in Main", "Stopping the application");
                                 finish();
@@ -341,8 +343,24 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 }
             }
         }
+        if(shutdownOnClose) {
+            try {
+                Process proc = Runtime.getRuntime()
+                        .exec(new String[]{ "su", "-c", "reboot -p" });
+                proc.waitFor();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
         // Here we start nullify everything`
         System.exit(0);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // On resume you we update stuff again
+        updateSetting();
     }
 
     @Override
@@ -385,7 +403,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
         // TODO Auto-generated method stub
-
+        GPSStatus = status;
     }
 
     @Override
@@ -397,7 +415,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
     private void updateSpeed(CLocation location) {
         // TODO Auto-generated method stub
         float nCurrentSpeed = 0;
-
         if(location != null)
         {
             nCurrentSpeed = location.getSpeed();
@@ -528,9 +545,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             CameraService.LightSensorListener = new SensorEventListener() {
                 @Override
                 public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
                 }
-
                 @Override
                 public void onSensorChanged(SensorEvent event) {
                     if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150)) {
@@ -558,49 +573,52 @@ public class MainCam extends Activity implements IBaseGpsListener {
         } catch (NumberFormatException e) {
             maxSpeed = 80;
         }
-        //On Screen Duration
-        onScreenDuration = mpref.getString("onScreenDuration", "300000");
-        if (onScreenDuration.compareTo("Always On") == 0) {
+        //Keep Screen On
+        keepScreenOn = mpref.getBoolean("keepScreenOn", false);
+        if (keepScreenOn) {
             //User prefer to keep screen always on
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        } else if (onScreenDuration.compareTo("Use System Setting") != 0) {
-            //User want to set screen time off
-            onScreenDuration = mpref.getString("onScreenDuration", "300000");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                boolean canWrite = Settings.System.canWrite(getApplicationContext());
-                try {
-                    previousOnScreenDuration = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
-                } catch (Settings.SettingNotFoundException e) {
-                    e.printStackTrace();
-                }
-                if (canWrite) {
-                    android.provider.Settings.System.putInt(
-                            getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
-                } else {
-                    Intent systemCanWrite = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
-                    systemCanWrite.setData(Uri.parse("package:" + getApplicationContext().getPackageName()));
-                    startActivity(systemCanWrite);
-                }
-            } else {
-                android.provider.Settings.System.putInt(
-                        getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, Integer.parseInt(onScreenDuration));
-            }
-        }else{
-            //We will clear the flag and use system setting
+        }else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+
         //Record Duration
         try {
             recordDuration = Integer.parseInt(mpref.getString("recordDuration", "10"));
         } catch (NumberFormatException e) {
             recordDuration = 10;
         }
+
         //Available Storage
         try {
             CameraService.availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
         } catch (NumberFormatException e) {
             CameraService.availableStorage = 700;
         }
+
+        //Maximum Brightness
+        maximumBrightness = mpref.getBoolean("maximumBrightness", false);
+        if(keepScreenOn) {
+            getWindow().getAttributes().screenBrightness = 1;
+        }else {
+            getWindow().getAttributes().screenBrightness = -1;
+        }
+
+        //Shutdown on Close
+        shutdownOnClose = mpref.getBoolean("shutdownOnClose", false);
+
+        //Open on Startup
+        PackageManager pmOpenOnStartup  = this.getPackageManager();
+        ComponentName cnOpenOnStartup = new ComponentName(this, StartAtBootReceiver.class);
+        openOnStartup = mpref.getBoolean("openOnStartup", false);
+        if(openOnStartup) {
+            pmOpenOnStartup.setComponentEnabledSetting(cnOpenOnStartup,PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP);
+        }else{
+            pmOpenOnStartup.setComponentEnabledSetting(cnOpenOnStartup,PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP);
+        }
+
         //Auto Start/Stop
         mautoStart = mpref.getBoolean("autoStartStop", true);
     }

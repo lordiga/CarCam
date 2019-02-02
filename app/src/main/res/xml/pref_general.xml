@@ -19,6 +19,16 @@
         android:key="@string/pref_key_keep_record_on_drive"
         android:summary="@string/pref_description_keep_record_on_drive"
         android:title="@string/pref_title_keep_record_on_drive" />
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_open_on_startup"
+        android:key="@string/pref_key_open_on_startup"
+        android:summary="@string/pref_description_open_on_startup"
+        android:title="@string/pref_title_open_on_startup" />
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_shutdown_on_close"
+        android:key="@string/pref_key_shutdown_on_close"
+        android:summary="@string/pref_description_shutdown_on_close"
+        android:title="@string/pref_title_shutdown_on_close" />
     <PreferenceCategory
         android:key="@string/pref_key_camera_setting"
         android:title="@string/pref_title_camera_setting"
@@ -42,15 +52,16 @@
         android:singleLine="true"
         android:summary="@string/pref_description_record_time"
         android:title="@string/pref_title_record_time" />
-    <ListPreference
-        android:defaultValue="@string/pref_default_on_screen_duration_value"
-        android:entries="@array/pref_on_screen_duration_item"
-        android:entryValues="@array/pref_on_screen_duration_value"
-        android:key="@string/pref_key_on_screen_duration"
-        android:negativeButtonText="@null"
-        android:positiveButtonText="@null"
-        android:summary="@string/pref_description_on_screen_duration"
-        android:title="@string/pref_title_on_screen_duration" />
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_keep_screen_on_value"
+        android:key="@string/pref_key_keep_screen_on"
+        android:summary="@string/pref_description_keep_screen_on"
+        android:title="@string/pref_title_keep_screen_on" />
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_maximum_brightness_value"
+        android:key="@string/pref_key_maximum_brightness"
+        android:summary="@string/pref_description_maximum_brightness"
+        android:title="@string/pref_title_maximum_brightness" />
     <EditTextPreference
         android:capitalize="words"
         android:defaultValue="@string/pref_default_available_storage"
