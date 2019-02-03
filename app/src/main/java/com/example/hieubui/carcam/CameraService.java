@@ -50,6 +50,8 @@ public class CameraService extends Service{
     static boolean extremeDarkLight;
     static int senceMode;
     static CameraPreview mPreview;
+    static WindowManager windowManager;
+    static WindowManager.LayoutParams layoutParams;
     static MediaRecorder mMediaRecorder;
     static boolean surfacePreviewDetroyed = false;
     static boolean isRecording = false;
@@ -112,15 +114,16 @@ public class CameraService extends Service{
         mMediaRecorder = new MediaRecorder();
         // Create our Preview view.
         mPreview = new CameraPreview(this, mCamera);
-        WindowManager windowManager=(WindowManager)getSystemService(WINDOW_SERVICE);
+        windowManager =(WindowManager)getSystemService(WINDOW_SERVICE);
         //FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
-        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams(
+        layoutParams = new WindowManager.LayoutParams(
                 1, 1,
                 WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY,
                 WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                 PixelFormat.TRANSLUCENT
         );
-        layoutParams.gravity = Gravity.LEFT | Gravity.TOP;
+        layoutParams.gravity = Gravity.CENTER;
+
         windowManager.addView(mPreview, layoutParams);
         //preview.addView(mPreview);
         try {

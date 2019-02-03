@@ -87,15 +87,15 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             }
 
             if(display.getRotation() == Surface.ROTATION_90) {
-                mCamera.setDisplayOrientation(0);
+                mCamera.setDisplayOrientation(90);
             }
 
             if(display.getRotation() == Surface.ROTATION_180) {
-                mCamera.setDisplayOrientation(270);
+                mCamera.setDisplayOrientation(90);
             }
 
             if(display.getRotation() == Surface.ROTATION_270) {
-                mCamera.setDisplayOrientation(180);
+                mCamera.setDisplayOrientation(90);
             }
         } catch (Exception e){
             // ignore: tried to stop a non-existent preview

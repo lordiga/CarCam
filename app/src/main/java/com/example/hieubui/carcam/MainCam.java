@@ -53,6 +53,9 @@ import java.util.concurrent.TimeUnit;
 import static android.content.ContentValues.TAG;
 import static com.example.hieubui.carcam.CameraService.isRecording;
 import static com.example.hieubui.carcam.CameraService.isServiceRun;
+import static com.example.hieubui.carcam.CameraService.layoutParams;
+import static com.example.hieubui.carcam.CameraService.mPreview;
+import static com.example.hieubui.carcam.CameraService.windowManager;
 
 
 public class MainCam extends Activity implements IBaseGpsListener {
@@ -361,6 +364,22 @@ public class MainCam extends Activity implements IBaseGpsListener {
         super.onResume();
         // On resume you we update stuff again
         updateSetting();
+        if(layoutParams !=null) {
+            layoutParams.height = 320;
+            layoutParams.width = 240;
+            windowManager.updateViewLayout(mPreview, layoutParams);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        updateSetting();
+        if(layoutParams !=null) {
+            layoutParams.height = 1;
+            layoutParams.width = 1;
+            windowManager.updateViewLayout(mPreview, layoutParams);
+        }
     }
 
     @Override
@@ -439,7 +458,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     public void startCameraService() {
         if(mCameraService != null) {
-            updateSetting();
             mCameraService.startCamera();
             startRecordTimer();
         }
