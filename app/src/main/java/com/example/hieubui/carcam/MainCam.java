@@ -841,7 +841,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
         //Record Duration
         try {
-            recordDuration = Integer.parseInt(mpref.getString("recordDuration", "1"));
+            recordDuration = Integer.parseInt(mpref.getString("recordDuration", "10"));
         } catch (NumberFormatException e) {
             recordDuration = 10;
         }
