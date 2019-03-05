@@ -23,6 +23,11 @@
     <string name="pref_description_keep_record_on_drive">Keep recording if disconnect to power source while driving</string>
     <string name="pref_key_keep_record_on_drive">keepRecordOnDrive</string>
 
+    <string name="pref_title_record_on_preview">Start Record On Preview</string>
+    <string name="pref_default_record_on_preview">false</string>
+    <string name="pref_description_record_on_preview">Immediately record after preview available </string>
+    <string name="pref_key_record_on_preview">recordOnPreview</string>
+
     <string name="pref_title_open_on_startup">Open on Startup</string>
     <string name="pref_default_open_on_startup">true</string>
     <string name="pref_description_open_on_startup">Open Application on Background on Startup</string>
@@ -34,7 +39,7 @@
     <string name="pref_key_shutdown_on_close">shutdownOnClose</string>
 
     <string name="pref_title_record_time">Record Time(Minute)</string>
-    <string name="pref_default_record_time">10</string>
+    <string name="pref_default_record_time">1</string>
     <string name="pref_description_record_time">Recording time to save to file(In Minute) </string>
     <string name="pref_key_keep_record_time">recordDuration</string>
 
@@ -47,6 +52,11 @@
     <string name="pref_default_maximum_brightness_value">false</string>
     <string name="pref_description_maximum_brightness">Change phone brightness to 100%</string>
     <string name="pref_key_maximum_brightness">maximumBrightness</string>
+
+    <string name="pref_title_record_on_background">Record On Background</string>
+    <string name="pref_default_record_on_background">false</string>
+    <string name="pref_description_record_on_background">Keep recording while app in background</string>
+    <string name="pref_key_record_on_background">recordOnBackground</string>
 
     <string name="pref_title_max_speed">Max Speed(mph)</string>
     <string name="pref_default_max_speed">80</string>
