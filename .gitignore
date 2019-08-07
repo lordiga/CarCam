@@ -1,0 +1,6 @@
+#Ignore any files under build
+app/build/
+#Ignore any files under .gradle
+.gradle/
+#Ignore any files under .idea
+.idea/

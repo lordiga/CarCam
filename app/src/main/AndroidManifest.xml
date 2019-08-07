@@ -9,7 +9,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.hardware.camera" />
 
     <application
@@ -31,17 +32,6 @@
             </intent-filter>
         </activity>
 
-        <!--
-        <receiver android:name=".BatteryStatus">
-            <intent-filter>
-                <action android:name="android.intent.action.ACTION_POWER_CONNECTED"/>
-                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED"/>
-            </intent-filter>
-        </receiver>
-        -->
-        <service android:name=".CameraService" />
-        <service android:name=".BatteryService" />
-
         <activity
             android:name=".SettingsActivity"
             android:label="@string/title_activity_settings"
@@ -50,6 +40,20 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.example.hieubui.carcam.MainCam" />
         </activity>
+        <service android:name=".CameraService" />
+        <service android:name=".BatteryService" android:label="Battery Service">
+            <intent-filter>
+                <action android:name="com.example.hieubui.carcam.BatteryService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".StartAtBootReceiver"
+            android:label="StartMyServiceAtBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
