@@ -23,29 +23,40 @@
     <string name="pref_description_keep_record_on_drive">Keep recording if disconnect to power source while driving</string>
     <string name="pref_key_keep_record_on_drive">keepRecordOnDrive</string>
 
+    <string name="pref_title_record_on_preview">Start Record On Preview</string>
+    <string name="pref_default_record_on_preview">false</string>
+    <string name="pref_description_record_on_preview">Immediately record after preview available </string>
+    <string name="pref_key_record_on_preview">recordOnPreview</string>
+
+    <string name="pref_title_open_on_startup">Open on Startup</string>
+    <string name="pref_default_open_on_startup">true</string>
+    <string name="pref_description_open_on_startup">Open Application on Background on Startup</string>
+    <string name="pref_key_open_on_startup">openOnStartup</string>
+
+    <string name="pref_title_shutdown_on_close">Shutdown on Close (Only on Root)</string>
+    <string name="pref_default_shutdown_on_close">false</string>
+    <string name="pref_description_shutdown_on_close">Shut down the phone on closeing application</string>
+    <string name="pref_key_shutdown_on_close">shutdownOnClose</string>
+
     <string name="pref_title_record_time">Record Time(Minute)</string>
-    <string name="pref_default_record_time">10</string>
+    <string name="pref_default_record_time">1</string>
     <string name="pref_description_record_time">Recording time to save to file(In Minute) </string>
     <string name="pref_key_keep_record_time">recordDuration</string>
 
-    <string name="pref_title_on_screen_duration">On Screen Duration(Minute)</string>
-    <string name="pref_description_on_screen_duration">How long do you want to keep your screen on </string>
-    <string name="pref_key_on_screen_duration">onScreenDuration</string>
-    <string name="pref_default_on_screen_duration_value">Use System Setting</string>
-    <string-array name="pref_on_screen_duration_item">
-        <item>30 Seconds</item>
-        <item>5 Minutes</item>
-        <item>30 Minutes</item>
-        <item>Use System Setting</item>
-        <item>Always On</item>
-    </string-array>
-    <string-array name="pref_on_screen_duration_value">
-        <item>30000</item>
-        <item>300000</item>
-        <item>1800000</item>
-        <item>Use System Setting</item>
-        <item>Always On</item>
-    </string-array>
+    <string name="pref_title_keep_screen_on">Always Turn On Screen</string>
+    <string name="pref_default_keep_screen_on_value">false</string>
+    <string name="pref_description_keep_screen_on">Keep screen on when open the application</string>
+    <string name="pref_key_keep_screen_on">keepScreenOn</string>
+
+    <string name="pref_title_maximum_brightness">Maximum Brightness</string>
+    <string name="pref_default_maximum_brightness_value">false</string>
+    <string name="pref_description_maximum_brightness">Change phone brightness to 100%</string>
+    <string name="pref_key_maximum_brightness">maximumBrightness</string>
+
+    <string name="pref_title_record_on_background">Record On Background</string>
+    <string name="pref_default_record_on_background">false</string>
+    <string name="pref_description_record_on_background">Keep recording while app in background</string>
+    <string name="pref_key_record_on_background">recordOnBackground</string>
 
     <string name="pref_title_max_speed">Max Speed(mph)</string>
     <string name="pref_default_max_speed">80</string>
@@ -58,8 +69,8 @@
     <string name="pref_key_available_storage">availableStorage</string>
 
     <string name="pref_title_emergency_number">Emergency Number</string>
-    <string name="pref_default_emergency_number">+01(215)760-6998</string>
-    <string name="pref_description_emergency_number">Emergency Number to call in event of accident </string>
+    <string name="pref_default_emergency_number">+01911</string>
+    <string name="pref_description_emergency_number">Start with country code if you calling to a common number. IE:+01911</string>
     <string name="pref_key_emergency_number">emergencyNumber</string>
 
     <string name="pref_title_sence_mode">Sence Mode</string>
@@ -77,4 +88,12 @@
     <string name="pref_key_sence_mode">senceMode</string>
     <string name="pref_ringtone_silent">Silent</string>
 
+    <string name="pref_key_auto_setting">autoSetting</string>
+    <string name="pref_title_auto_setting">Auto Setting</string>
+
+    <string name="pref_key_safety_setting">safetySetting</string>
+    <string name="pref_title_safety_setting">Safety Setting</string>
+
+    <string name="pref_key_camera_setting">cameraSetting</string>
+    <string name="pref_title_camera_setting">Camera Setting</string>
 </resources>
