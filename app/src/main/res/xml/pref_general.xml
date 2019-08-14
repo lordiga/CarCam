@@ -38,13 +38,6 @@
         android:key="@string/pref_key_camera_setting"
         android:title="@string/pref_title_camera_setting"
         />
-    <ListPreference
-        android:defaultValue="-1"
-        android:entries="@array/pref_sence_mode_item"
-        android:entryValues="@array/pref_sence_mode_value"
-        android:key="@string/pref_key_sence_mode"
-        android:summary="@string/pref_description_sence_mode"
-        android:title="@string/pref_title_sence_mode" />
     <EditTextPreference
         android:capitalize="words"
         android:defaultValue="@string/pref_default_record_time"
@@ -80,6 +73,11 @@
         android:singleLine="true"
         android:summary="@string/pref_description_available_storage"
         android:title="@string/pref_title_available_storage" />
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_save_on_sdcard"
+        android:key="@string/pref_key_save_on_sdcard"
+        android:summary="@string/pref_description_save_on_sdcard"
+        android:title="@string/pref_title_save_on_sdcard" />
     <PreferenceCategory
         android:key="@string/pref_key_safety_setting"
         android:title="@string/pref_title_safety_setting"

@@ -47,7 +47,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
            if(MainCam.MainCam.isRecording) {
                MainCam.MainCam.startCamera();
             }
-            else if(MainCam.MainCam.mpref.getBoolean("recordOnPreview", false) ) {
+            else if(MainCam.MainCam.mpref.getBoolean("recordOnPreview", true) ) {
                 // start recording
                 // start service timer and scheduler
                 MainCam.MainCam.startCamera();
