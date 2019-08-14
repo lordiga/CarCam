@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_auto_start"
+        android:key="@string/pref_key_auto_start"
+        android:summary="@string/pref_description_auto_start"
+        android:title="@string/pref_title_auto_start" />
+
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_start_on_drive"
+        android:key="@string/pref_key_start_on_drive"
+        android:summary="@string/pref_description_start_on_drive"
+        android:title="@string/pref_title_start_on_drive" />
+
+    <SwitchPreference
+        android:defaultValue="@string/pref_default_keep_record_on_drive"
+        android:key="@string/pref_key_keep_record_on_drive"
+        android:summary="@string/pref_description_keep_record_on_drive"
+        android:title="@string/pref_title_keep_record_on_drive" />
+
+    <ListPreference
+        android:defaultValue="-1"
+        android:entries="@array/pref_sence_mode_item"
+        android:entryValues="@array/pref_sence_mode_value"
+        android:key="@string/pref_key_sence_mode"
+        android:negativeButtonText="@null"
+        android:positiveButtonText="@null"
+        android:summary="@string/pref_description_sence_mode"
+        android:title="@string/pref_title_sence_mode" />
+
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_record_time"
+        android:inputType="textCapWords"
+        android:key="@string/pref_key_keep_record_time"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_record_time"
+        android:title="@string/pref_title_record_time" />
+
+
+    <ListPreference
+        android:defaultValue="@string/pref_default_on_screen_duration_value"
+        android:entries="@array/pref_on_screen_duration_item"
+        android:entryValues="@array/pref_on_screen_duration_value"
+        android:key="@string/pref_key_on_screen_duration"
+        android:negativeButtonText="@null"
+        android:positiveButtonText="@null"
+        android:summary="@string/pref_description_on_screen_duration"
+        android:title="@string/pref_title_on_screen_duration" />
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_max_speed"
+        android:inputType="textCapWords"
+        android:key="@string/pref_key_max_speed"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_max_speed"
+        android:title="@string/pref_title_max_speed"/>
+
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_available_storage"
+        android:inputType="textCapWords"
+        android:key="@string/pref_key_available_storage"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_available_storage"
+        android:title="@string/pref_title_available_storage" />
+
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_emergency_number"
+        android:inputType="textCapWords"
+        android:key="@string/pref_key_emergency_number"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_description_emergency_number"
+        android:title="@string/pref_title_emergency_number"/>
+
+</PreferenceScreen>
