@@ -205,13 +205,13 @@ public class MainCam extends Activity implements IBaseGpsListener {
                         direction.setText(Math.round(azimuth) + "° South");
                     }else if((azimuth > 205)&& (azimuth <= 245 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "\" SouthWest");
+                        direction.setText(Math.round(azimuth) + "° SouthWest");
                     }else if((azimuth > 245)&& (azimuth <= 295 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "\" West");
+                        direction.setText(Math.round(azimuth) + "° West");
                     }else if((azimuth > 295)&& (azimuth <= 335 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "\" NorthWest");
+                        direction.setText(Math.round(azimuth) + "° NorthWest");
                     }else if((azimuth > 335)&& (azimuth <= 360 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
                         direction.setText(Math.round(azimuth) + "\" North");
