@@ -1,10 +1,7 @@
 <resources>
     <string name="app_name">CarCam</string>
 
-    <string name="dummy_button">Dummy Button</string>
-    <string name="dummy_content">DUMMY\nCONTENT</string>
     <string name="title_activity_settings">Settings</string>
-
 
     <string name="pref_header_general">General</string>
 
@@ -58,6 +55,11 @@
     <string name="pref_description_record_on_background">Keep recording while app in background</string>
     <string name="pref_key_record_on_background">recordOnBackground</string>
 
+    <string name="pref_title_save_on_sdcard">Save On SDCard</string>
+    <string name="pref_default_save_on_sdcard">false</string>
+    <string name="pref_description_save_on_sdcard">Save recorded file on SDCard</string>
+    <string name="pref_key_save_on_sdcard">saveOnSDCard</string>
+
     <string name="pref_title_max_speed">Max Speed(mph)</string>
     <string name="pref_default_max_speed">80</string>
     <string name="pref_description_max_speed">Maximum spped for the phone to alert when running faster (in Mph) </string>
@@ -72,21 +74,6 @@
     <string name="pref_default_emergency_number">+01911</string>
     <string name="pref_description_emergency_number">Start with country code if you calling to a common number. IE:+01911</string>
     <string name="pref_key_emergency_number">emergencyNumber</string>
-
-    <string name="pref_title_sence_mode">Sence Mode</string>
-    <string name="pref_description_sence_mode">Set exposure to mode</string>
-    <string-array name="pref_sence_mode_item">
-        <item>Day</item>
-        <item>Night</item>
-        <item>Auto</item>
-    </string-array>
-    <string-array name="pref_sence_mode_value">
-        <item>0</item>
-        <item>2</item>
-        <item>-1</item>
-    </string-array>
-    <string name="pref_key_sence_mode">senceMode</string>
-    <string name="pref_ringtone_silent">Silent</string>
 
     <string name="pref_key_auto_setting">autoSetting</string>
     <string name="pref_title_auto_setting">Auto Setting</string>

@@ -31,11 +31,15 @@ import android.preference.PreferenceManager;
 import android.support.v4.app.ActivityCompat;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Display;
+import android.view.Surface;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
+
+import org.w3c.dom.Text;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,6 +53,10 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 import static android.content.ContentValues.TAG;
+import static android.hardware.SensorManager.AXIS_MINUS_X;
+import static android.hardware.SensorManager.AXIS_MINUS_Y;
+import static android.hardware.SensorManager.AXIS_X;
+import static android.hardware.SensorManager.AXIS_Y;
 import static com.example.hieubui.carcam.CameraService.cameraService;
 
 public class MainCam extends Activity implements IBaseGpsListener {
@@ -72,12 +80,18 @@ public class MainCam extends Activity implements IBaseGpsListener {
     boolean recordOnBackground;
     String emergencyNumber;
     SharedPreferences  mpref;
-    /**Light and Sence mode*/
-    static SensorManager mySensorManager;
-    static SensorEventListener LightSensorListener;
-    static boolean darkLight;
-    static boolean extremeDarkLight;
-    static int senceMode;
+    /**Build-in Compass*/
+    static SensorManager mSensorManager;
+    static SensorEventListener compassSensorListener;
+    float[] inR = new float[16];
+    float[] outR = new float[16];
+    float[] I = new float[16];
+    float[] gravity = new float[3];
+    float[] geomag = new float[3];
+    float[] orientVals = new float[3];
+    double azimuth = 0;
+    double pitch = 0;
+    double roll = 0;
     /**Battery Broadcast Receiver*/
     boolean previousCharging = false;
     IntentFilter batteryFilter;
@@ -133,6 +147,88 @@ public class MainCam extends Activity implements IBaseGpsListener {
         if (mCamera != null) {
             params = mCamera.getParameters();
         }
+        // Initiate compass
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        compassSensorListener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent sensorEvent) {
+                // If the sensor data is unreliable return
+                if (sensorEvent.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
+                    TextView direction = (TextView)findViewById(R.id.txtDirection);
+                    direction.setText("Direction Not Available");
+                    return;
+                }
+                // Gets the value of the sensor that has been changed
+                switch (sensorEvent.sensor.getType()) {
+                    case Sensor.TYPE_ACCELEROMETER:
+                        gravity = sensorEvent.values.clone();
+                        break;
+                    case Sensor.TYPE_MAGNETIC_FIELD:
+                        geomag = sensorEvent.values.clone();
+                        break;
+                }
+
+                // If gravity and geomag have values then find rotation matrix
+                if (gravity != null && geomag != null) {
+
+                    // checks that the rotation matrix is found
+                    boolean success = SensorManager.getRotationMatrix(inR, I,
+                            gravity, geomag);
+                    Display display = ((WindowManager)MainCam.getSystemService(WINDOW_SERVICE)).getDefaultDisplay();
+                    if(display.getRotation() == Surface.ROTATION_0) {
+                        success = SensorManager.remapCoordinateSystem(inR, AXIS_X, AXIS_Y, outR);
+                    }else if(display.getRotation() == Surface.ROTATION_90) {
+                        success = SensorManager.remapCoordinateSystem(inR, AXIS_Y, AXIS_MINUS_X, outR);
+                    }else if(display.getRotation() == Surface.ROTATION_270) {
+                        success = SensorManager.remapCoordinateSystem(inR, AXIS_MINUS_Y, AXIS_X, outR);
+                    }
+                    if (success) {
+                        SensorManager.getOrientation(outR, orientVals);
+                        azimuth = Math.toDegrees(orientVals[0]);
+                        pitch = Math.toDegrees(orientVals[1]);
+                        roll = Math.toDegrees(orientVals[2]);
+                    }
+                    if((azimuth >= 0)&& (azimuth <= 25 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° North");
+                    }else if((azimuth > 25)&& (azimuth <= 65 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° NorthEast");
+                    }else if((azimuth > 65)&& (azimuth <= 115 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° East");
+                    }else if((azimuth > 115)&& (azimuth <= 155 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° SouthEast");
+                    }else if((azimuth > 155)&& (azimuth <= 205 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° South");
+                    }else if((azimuth > 205)&& (azimuth <= 245 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° SouthWest");
+                    }else if((azimuth > 245)&& (azimuth <= 295 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° West");
+                    }else if((azimuth > 295)&& (azimuth <= 335 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "° NorthWest");
+                    }else if((azimuth > 335)&& (azimuth <= 360 )) {
+                        TextView direction = (TextView)findViewById(R.id.txtDirection);
+                        direction.setText(Math.round(azimuth) + "\" North");
+                    }
+                }
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int i) {
+            }
+        };
+        // Register this class as a listener for the accelerometer sensor
+        mSensorManager.registerListener(compassSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                SensorManager.SENSOR_DELAY_NORMAL);
+        // ...and the orientation sensor
+        mSensorManager.registerListener(compassSensorListener, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                SensorManager.SENSOR_DELAY_NORMAL);
 
         // Initiate mediaRecorder and check for storage setting
         mMediaRecorder = new MediaRecorder();
@@ -140,42 +236,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
             availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
         } catch (NumberFormatException e) {
             availableStorage = 700;
-        }
-
-        // Initiate Light sensor
-        senceMode = Integer.parseInt(mpref.getString("senceMode", "-1"));
-        darkLight = senceMode == 2;
-        if (senceMode == -1) {
-            LightSensorListener = new SensorEventListener() {
-                @Override
-                public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                }
-                @Override
-                public void onSensorChanged(SensorEvent event) {
-                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150) && (event.values[0] > 5)) {
-                        darkLight = true;
-                        extremeDarkLight = false;
-                    } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)) {
-                        //Bright light now
-                        darkLight = false;
-                        extremeDarkLight = false;
-                    } else if((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 5)) {
-                        //Extremely low light
-                        extremeDarkLight = true;
-                        darkLight = false;
-                    }
-                }
-            };
-            mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-            Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-            if (LightSensor != null) {
-                mySensorManager.registerListener(
-                        LightSensorListener,
-                        LightSensor,
-                        90000000);
-            } else {
-                Log.d("MainCam", "Sensor.TYPE_LIGHT NOT Available");
-            }
         }
 
         /**Set up keep screen on*/
@@ -405,6 +465,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Unregister compass
+        mSensorManager.unregisterListener(compassSensorListener);
         // Revert system setting change
         // Update new setting to Battery Service
         updateSetting();
@@ -666,9 +728,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         try {
             mMediaRecorder.prepare();
             mCamera.lock();
-            if(mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null) {
-                configSenseModeCamera(params, mCamera);
-            }
+            configSenseModeCamera(params, mCamera);
             mCamera.unlock();
         } catch (IllegalStateException e) {
             Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
@@ -692,6 +752,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     public int getAvailableInternalMemorySize() {
         File path = new File("/storage/sdcard0/");
+        if(mpref.getBoolean("saveOnSDCard", false)) {
+            path = new File("/storage/sdcard1/");
+        }
         StatFs stat = new StatFs(path.getPath());
         long blockSize = stat.getBlockSize();
         long availableBlocks = stat.getAvailableBlocks();
@@ -701,8 +764,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public File getOutputMediaFile(int type, int availableStorage){
         // To be safe, you should check that the SDCard is mounted
         // using Environment.getExternalStorageState() before doing this.
+        File mediaStorageDir = new File("/storage/sdcard0/CarCam");
+        if(mpref.getBoolean("saveOnSDCard", false)) {
+            mediaStorageDir = new File("/storage/sdcard1/CarCam");
+        }
 
-        File mediaStorageDir = new File("/storage/sdcard0/carcam");
         // This location works best if you want the created images to be shared
         // between applications and persist after your app has been uninstalled.
 
@@ -769,22 +835,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
         List<String> sceneMode = params.getSupportedSceneModes();
 
-        if(darkLight) {
-            params.setExposureCompensation((int)(params.getMaxExposureCompensation()/3*2));
-            Log.d("Darklight", "Set to 2/3 of Max EC " + params.getMaxExposureCompensation() );
-
-        }else if(extremeDarkLight) {
-            params.setExposureCompensation(params.getMaxExposureCompensation());
-            Log.d("Extreme Darklight", "Set to max EC " + params.getMaxExposureCompensation() );
+        params.setExposureCompensation(0);
+        if (whiteBalance.contains(Camera.Parameters.WHITE_BALANCE_AUTO)) {
+            params.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
         }
-        else{
-            params.setExposureCompensation(0);
-            if (whiteBalance.contains(Camera.Parameters.WHITE_BALANCE_AUTO)) {
-                params.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
-            }
-            if (sceneMode.contains(Camera.Parameters.SCENE_MODE_AUTO)) {
-                params.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
-            }
+        if (sceneMode.contains(Camera.Parameters.SCENE_MODE_AUTO)) {
+            params.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
         }
         if (params.isVideoStabilizationSupported()) {
             params.setVideoStabilization(true);
@@ -795,35 +851,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public void updateSetting() {
         // Emergency Number
         emergencyNumber = mpref.getString("emergencyNumber","+01911");
-        //Sence Mode
-        senceMode = Integer.parseInt(mpref.getString("senceMode", "-1"));
-        darkLight = senceMode == 2;
-        if (senceMode == -1) {
-            LightSensorListener = new SensorEventListener() {
-                @Override
-                public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                }
-                @Override
-                public void onSensorChanged(SensorEvent event) {
-                    if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] < 150)) {
-                        darkLight = true;
-                    } else if ((event.sensor.getType() == Sensor.TYPE_LIGHT) && (event.values[0] > 150)) {
-                        // Bright light now
-                        darkLight = false;
-                    }
-                }
-            };
-            mySensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-            Sensor LightSensor = mySensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-            if (LightSensor != null) {
-                mySensorManager.registerListener(
-                        LightSensorListener,
-                        LightSensor,
-                        90000000);
-            } else {
-                Log.d("MainCam", "Sensor.TYPE_LIGHT NOT Available");
-            }
-        }
+
         //Max Speed
         try {
             maxSpeed = Integer.parseInt(mpref.getString("maxSpeed", "80"));
