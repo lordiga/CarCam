@@ -36,7 +36,7 @@
     <string name="pref_key_shutdown_on_close">shutdownOnClose</string>
 
     <string name="pref_title_record_time">Record Time(Minute)</string>
-    <string name="pref_default_record_time">1</string>
+    <string name="pref_default_record_time">10</string>
     <string name="pref_description_record_time">Recording time to save to file(In Minute) </string>
     <string name="pref_key_keep_record_time">recordDuration</string>
 

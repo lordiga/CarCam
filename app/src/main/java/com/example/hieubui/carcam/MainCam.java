@@ -37,6 +37,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import org.w3c.dom.Text;
@@ -106,6 +107,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     Camera.Parameters params;
     MediaRecorder mMediaRecorder;
     boolean isRecording = false;
+    static int cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
     /**Storage Object*/
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
@@ -291,7 +293,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
         } catch (Exception e) {
             locationManager = null;
-            Log.d("MainCam", "Location service is no available");
+            Log.d("MainCam", "Location service is not available");
         }
         if (locationManager != null) {
             this.updateSpeed(null);
@@ -365,7 +367,38 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     }
                 }
         );
-
+        final Switch cameraSwitch = (Switch) findViewById(R.id.switch1);
+        cameraSwitch.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        if (isRecording) {
+                            // If Camera is running we stop everything first
+                            mCamera.stopPreview();
+                            stopCamera();
+                            mCamera.release();
+                            stopScheduler();
+                            // Stop recordingTimer
+                            stopTimer();
+                            recordTimer = null;
+                            switchCamera();
+                            mCamera = getCameraInstance();
+                            preview.removeView(mPreview);
+                            mPreview = new CameraPreview(MainCam,mCamera);
+                            preview.addView(mPreview);
+                            serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
+                        } else {
+                            mCamera.stopPreview();
+                            mCamera.release();
+                            switchCamera();
+                            mCamera = getCameraInstance();
+                            preview.removeView(mPreview);
+                            mPreview = new CameraPreview(MainCam,mCamera);
+                            preview.addView(mPreview);
+                        }
+                    }
+                }
+        );
         // Create an intent filter to recieve batery charge event
         mautoStart = mpref.getBoolean("autoStartStop", true);
         batteryFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
@@ -689,7 +722,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public static Camera getCameraInstance(){
         Camera c = null;
         try {
-            c = Camera.open(); // attempt to get a Camera instance
+            c = Camera.open(cameraId); // attempt to get a Camera instance
         }
         catch (Exception e){
             // Camera is not available (in use or does not exist)
@@ -728,7 +761,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
         try {
             mMediaRecorder.prepare();
             mCamera.lock();
-            configSenseModeCamera(params, mCamera);
+            if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                configSenseModeCamera(params, mCamera);
+            }
             mCamera.unlock();
         } catch (IllegalStateException e) {
             Log.d(TAG, "IllegalStateException preparing MediaRecorder: " + e.getMessage());
@@ -764,9 +799,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public File getOutputMediaFile(int type, int availableStorage){
         // To be safe, you should check that the SDCard is mounted
         // using Environment.getExternalStorageState() before doing this.
-        File mediaStorageDir = new File("/storage/sdcard0/CarCam");
+        File mediaStorageDir = new File("/storage/sdcard0/carcam");
         if(mpref.getBoolean("saveOnSDCard", false)) {
-            mediaStorageDir = new File("/storage/sdcard1/CarCam");
+            mediaStorageDir = new File("/storage/sdcard1/carcam");
         }
 
         // This location works best if you want the created images to be shared
@@ -823,6 +858,40 @@ public class MainCam extends Activity implements IBaseGpsListener {
             }        }else {
             return 0;
         }
+    }
+
+    public static void switchCamera() {
+        if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
+            cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+        }
+        else {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+        }
+    }
+
+    public static void setCameraDisplayOrientation(Activity activity,
+                                                   int cameraId, android.hardware.Camera camera) {
+        android.hardware.Camera.CameraInfo info =
+                new android.hardware.Camera.CameraInfo();
+        android.hardware.Camera.getCameraInfo(cameraId, info);
+        int rotation = activity.getWindowManager().getDefaultDisplay()
+                .getRotation();
+        int degrees = 0;
+        switch (rotation) {
+            case Surface.ROTATION_0: degrees = 0; break;
+            case Surface.ROTATION_90: degrees = 90; break;
+            case Surface.ROTATION_180: degrees = 180; break;
+            case Surface.ROTATION_270: degrees = 270; break;
+        }
+
+        int result;
+        if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            result = (info.orientation + degrees) % 360;
+            result = (360 - result) % 360;  // compensate the mirror
+        } else {  // back-facing
+            result = (info.orientation - degrees + 360) % 360;
+        }
+        camera.setDisplayOrientation(result);
     }
 
     public static void configSenseModeCamera(Camera.Parameters params, Camera mCamera) {

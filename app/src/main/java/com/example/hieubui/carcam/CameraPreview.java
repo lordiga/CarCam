@@ -47,7 +47,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
            if(MainCam.MainCam.isRecording) {
                MainCam.MainCam.startCamera();
             }
-            else if(MainCam.MainCam.mpref.getBoolean("recordOnPreview", true) ) {
+            else if(MainCam.MainCam.mpref.getBoolean("recordOnPreview", false) ) {
                 // start recording
                 // start service timer and scheduler
                 MainCam.MainCam.startCamera();
@@ -96,10 +96,6 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
             if(display.getRotation() == Surface.ROTATION_90) {
                 mCamera.setDisplayOrientation(0);
-            }
-
-            if(display.getRotation() == Surface.ROTATION_180) {
-                mCamera.setDisplayOrientation(270);
             }
 
             if(display.getRotation() == Surface.ROTATION_270) {
