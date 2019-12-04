@@ -48,13 +48,23 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
                MainCam.MainCam.startCamera();
             }
             else if(MainCam.MainCam.mpref.getBoolean("recordOnPreview", false) ) {
-                // start recording
-                // start service timer and scheduler
-                MainCam.MainCam.startCamera();
-                MainCam.MainCam.startScheduler(MainCam.MainCam.recordDuration);
-                MainCam.MainCam.startTimer();
-                ImageButton serviceButton = (ImageButton) MainCam.MainCam.findViewById(R.id.button_service);
-                serviceButton.setBackgroundResource(R.drawable.stop_record);
+                final ImageButton serviceButton = (ImageButton) MainCam.MainCam.findViewById(R.id.button_service);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        MainCam.MainCam.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                serviceButton.performClick();
+                            }
+                        });
+                    }
+                }).start();
             }
         } catch (IOException e) {
             Log.d(TAG, "Error setting camera preview: " + e.getMessage());

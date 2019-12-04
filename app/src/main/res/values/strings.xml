@@ -65,6 +65,11 @@
     <string name="pref_description_max_speed">Maximum spped for the phone to alert when running faster (in Mph) </string>
     <string name="pref_key_max_speed">maxSpeed</string>
 
+    <string name="pref_title_use_front_camera">Use Front Camera</string>
+    <string name="pref_default_use_front_camera">false</string>
+    <string name="pref_description_use_front_camera">Use Front Camera to record. Useful when you need to record within cabin </string>
+    <string name="pref_key_use_front_camera">useFrontCamera</string>
+
     <string name="pref_title_available_storage">Available Storage(Mb)</string>
     <string name="pref_default_available_storage">700</string>
     <string name="pref_description_available_storage">How much free space do you want to keep? (in MB) </string>

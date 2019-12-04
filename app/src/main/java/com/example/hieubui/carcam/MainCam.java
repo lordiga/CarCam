@@ -105,7 +105,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     /**Camera Object*/
     Camera mCamera;
     Camera.Parameters params;
-    MediaRecorder mMediaRecorder;
+    static MediaRecorder mMediaRecorder;
     boolean isRecording = false;
     static int cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
     /**Storage Object*/
@@ -143,9 +143,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
         firstRun = true;
         mpref = PreferenceManager.getDefaultSharedPreferences(this);
         emergencyNumber = mpref.getString("emergencyNumber","+01911");
-
+        if (mpref.getBoolean("useFrontCamera",false)) {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+        }
         // Create an instance of Camera
-        mCamera = getCameraInstance();
+        mCamera = getCameraInstance(cameraId);
         if (mCamera != null) {
             params = mCamera.getParameters();
         }
@@ -351,51 +353,28 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     public void onClick(View view) {
                         if (isRecording) {
                             // If Camera is running we stop everything first
+                            mCamera.stopPreview();
                             stopCamera();
                             stopScheduler();
                             // Stop recordingTimer
                             stopTimer();
                             recordTimer = null;
+                            releaseCamera();
+                            preview.removeView(mPreview);
+                            mPreview = null;
                             // Remove GPS update
                             if (locationManager != null) {
                                 locationManager.removeUpdates(MainCam.this);
                             }
                             serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
+                        }else {
+                            mCamera.stopPreview();
+                            releaseCamera();
+                            preview.removeView(mPreview);
+                            mPreview = null;
                         }
                         Intent settingIntent = new Intent(MainCam.this, SettingsActivity.class);
                         startActivity(settingIntent);
-                    }
-                }
-        );
-        final Switch cameraSwitch = (Switch) findViewById(R.id.switch1);
-        cameraSwitch.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        if (isRecording) {
-                            // If Camera is running we stop everything first
-                            mCamera.stopPreview();
-                            stopCamera();
-                            mCamera.release();
-                            stopScheduler();
-                            // Stop recordingTimer
-                            stopTimer();
-                            recordTimer = null;
-                            switchCamera();
-                            mCamera = getCameraInstance();
-                            preview.removeView(mPreview);
-                            mPreview = new CameraPreview(MainCam,mCamera);
-                            preview.addView(mPreview);
-                            serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
-                        } else {
-                            mCamera.stopPreview();
-                            mCamera.release();
-                            switchCamera();
-                            mCamera = getCameraInstance();
-                            preview.removeView(mPreview);
-                            mPreview = new CameraPreview(MainCam,mCamera);
-                            preview.addView(mPreview);
-                        }
                     }
                 }
         );
@@ -461,6 +440,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
         super.onResume();
         // On resume you we update stuff again
         updateSetting();
+        if(mPreview == null) {
+            mCamera = getCameraInstance(cameraId);
+            mPreview = new CameraPreview(this, mCamera);
+        }
         if(mPreview.getParent() == null) {
             preview.addView(mPreview);
         }
@@ -484,7 +467,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 stopTimer();
                 stopScheduler();
                 isRecording = true;
-                preview.removeView(mPreview);
+                if(mPreview != null) {
+                    preview.removeView(mPreview);
+                }
                 bindService(intentCameraService, mConnection, Context.BIND_AUTO_CREATE);
                 //startService(intentCameraService);
             }
@@ -719,7 +704,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }
     }
 
-    public static Camera getCameraInstance(){
+    public static Camera getCameraInstance(int cameraId){
         Camera c = null;
         try {
             c = Camera.open(cameraId); // attempt to get a Camera instance
@@ -733,7 +718,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public boolean prepareVideoRecorder(){
         // Step 1: Unlock and set camera to MediaRecorder
         if(mCamera == null) {
-            mCamera = getCameraInstance();
+            mCamera = getCameraInstance(cameraId);
             params = mCamera.getParameters();
         }
         mCamera.unlock();
@@ -869,31 +854,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
         }
     }
 
-    public static void setCameraDisplayOrientation(Activity activity,
-                                                   int cameraId, android.hardware.Camera camera) {
-        android.hardware.Camera.CameraInfo info =
-                new android.hardware.Camera.CameraInfo();
-        android.hardware.Camera.getCameraInfo(cameraId, info);
-        int rotation = activity.getWindowManager().getDefaultDisplay()
-                .getRotation();
-        int degrees = 0;
-        switch (rotation) {
-            case Surface.ROTATION_0: degrees = 0; break;
-            case Surface.ROTATION_90: degrees = 90; break;
-            case Surface.ROTATION_180: degrees = 180; break;
-            case Surface.ROTATION_270: degrees = 270; break;
-        }
-
-        int result;
-        if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            result = (info.orientation + degrees) % 360;
-            result = (360 - result) % 360;  // compensate the mirror
-        } else {  // back-facing
-            result = (info.orientation - degrees + 360) % 360;
-        }
-        camera.setDisplayOrientation(result);
-    }
-
     public static void configSenseModeCamera(Camera.Parameters params, Camera mCamera) {
         // set the focus mode
         List<String> focusModes = params.getSupportedFocusModes();
@@ -920,7 +880,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public void updateSetting() {
         // Emergency Number
         emergencyNumber = mpref.getString("emergencyNumber","+01911");
-
+        // Use Front Camera
+        if (mpref.getBoolean("useFrontCamera",false)) {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+        }else {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+        }
         //Max Speed
         try {
             maxSpeed = Integer.parseInt(mpref.getString("maxSpeed", "80"));

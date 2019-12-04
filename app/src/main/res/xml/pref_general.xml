@@ -49,6 +49,11 @@
         android:summary="@string/pref_description_record_time"
         android:title="@string/pref_title_record_time" />
     <SwitchPreference
+        android:defaultValue="@string/pref_default_use_front_camera"
+        android:key="@string/pref_key_use_front_camera"
+        android:summary="@string/pref_description_use_front_camera"
+        android:title="@string/pref_title_use_front_camera" />
+    <SwitchPreference
         android:defaultValue="@string/pref_default_keep_screen_on_value"
         android:key="@string/pref_key_keep_screen_on"
         android:summary="@string/pref_description_keep_screen_on"
