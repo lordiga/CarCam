@@ -13,6 +13,8 @@ import android.widget.ImageButton;
 import java.io.IOException;
 import static android.content.ContentValues.TAG;
 import static android.content.Context.WINDOW_SERVICE;
+import static com.example.hieubui.carcam.MainCam.cameraId;
+import static com.example.hieubui.carcam.MainCam.getCameraInstance;
 
 /** A basic Camera preview class */
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
@@ -39,51 +41,59 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
     public void surfaceCreated(SurfaceHolder holder) {
         // The Surface has been created, now tell the camera where to draw the preview.
-        Log.d("Camera Preview", "Camera created");
+        Log.d("Camera Preview", "Camera Surface created !!!");
         try {
             mCamera.setPreviewDisplay(mHolder);
             mCamera.startPreview();
 
-           if(MainCam.MainCam.isRecording) {
-               MainCam.MainCam.startCamera();
-            }
-            else if(MainCam.MainCam.mpref.getBoolean("recordOnPreview", false) ) {
-                final ImageButton serviceButton = (ImageButton) MainCam.MainCam.findViewById(R.id.button_service);
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                        MainCam.MainCam.runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                serviceButton.performClick();
+            if(MainCam.MainCam.mpref.getBoolean("recordOnPreview", false) ) {
+                if(!MainCam.MainCam.isRecording) {
+                    final ImageButton serviceButton = (ImageButton) MainCam.MainCam.findViewById(R.id.button_service);
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
                             }
-                        });
-                    }
-                }).start();
+                            MainCam.MainCam.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    serviceButton.performClick();
+                                }
+                            });
+                        }
+                    }).start();
+                }
             }
         } catch (IOException e) {
-            Log.d(TAG, "Error setting camera preview: " + e.getMessage());
+            Log.d("Camera Preview", "Error setting camera preview: " + e.getMessage());
         }
     }
 
     public void surfaceDestroyed(SurfaceHolder holder) {
         // empty. Take care of releasing the Camera preview in your activity.
-        Log.d("Camera Preview", "Camera Surface Destroyed !!!!");
+        Log.d("Camera Preview", "Camera Surface Destroyed !!!");
 
+        // If we recording on background and get here we need to add a new camera preview to the main view
+        // Removing camera preview already handled within service
         if(CameraService.cameraService != null && CameraService.cameraService.isServiceRun) {
-            MainCam.MainCam.isRecording = true;
+            Log.d("Camera Preview", "Removing camera service !!!");
             CameraService.cameraService.isServiceRun = false;
-            MainCam.MainCam.startScheduler(MainCam.MainCam.recordDuration);
-            MainCam.MainCam.startTimer();
-            MainCam.MainCam.mPreview = new CameraPreview(mcontext, mCamera);
+            // Get a fresh camera and preview for main cam
+            MainCam.MainCam.mCamera = getCameraInstance(cameraId);
+            MainCam.MainCam.mPreview = new CameraPreview(MainCam.MainCam, MainCam.MainCam.mCamera);
             MainCam.MainCam.preview.addView(MainCam.MainCam.mPreview);
-
-
+        }else {
+            // If we not record on background at all. We need to remove the preview from main activity
+            // This is the default behavior or surface detroy as camera server will die after this anyway
+            if (MainCam.MainCam.isRecording) {
+                MainCam.MainCam.stopCamera();
+            }
+            // Release the camera
+            MainCam.MainCam.releaseCamera();
+            MainCam.MainCam.mPreview = null;
         }
     }
 

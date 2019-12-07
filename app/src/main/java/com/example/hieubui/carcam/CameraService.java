@@ -10,6 +10,9 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.WindowManager;
 
+import static com.example.hieubui.carcam.MainCam.cameraId;
+import static com.example.hieubui.carcam.MainCam.getCameraInstance;
+
 
 public class CameraService extends Service{
 
@@ -33,7 +36,7 @@ public class CameraService extends Service{
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d("Camera Service", "Service Starting!!! ");
+        Log.d("Camera Service", "Service Starting !!!");
         isServiceRun = true;
         windowManager =(WindowManager)getSystemService(WINDOW_SERVICE);
         layoutParams = new WindowManager.LayoutParams(
@@ -51,11 +54,13 @@ public class CameraService extends Service{
     @Override
     public boolean onUnbind(Intent intent) {
         if((MainCam.MainCam.isRecording) && (isServiceRun)) {
-            Log.d("Camera Service","Destroying camera service");
+            Log.d("Camera Service","Destroying camera service !!!");
             //We only stop recording if service is running and it's recording
             MainCam.MainCam.stopScheduler();
             MainCam.MainCam.stopCamera();
+            MainCam.MainCam.releaseCamera();
             windowManager.removeView(MainCam.MainCam.mPreview);
+
         }else {
             isServiceRun = false;
         }

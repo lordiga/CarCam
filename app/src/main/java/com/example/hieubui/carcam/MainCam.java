@@ -100,10 +100,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
     /****************************/
     static MainCam MainCam;
     boolean firstRun;
-    FrameLayout preview;
-    CameraPreview mPreview;
+    static FrameLayout preview;
+    static CameraPreview mPreview;
     /**Camera Object*/
-    Camera mCamera;
+    static Camera mCamera;
     Camera.Parameters params;
     static MediaRecorder mMediaRecorder;
     boolean isRecording = false;
@@ -138,6 +138,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d("Main Cam", "Main activity on create !!!");
         setContentView(R.layout.activity_main_cam);
         MainCam = this;
         firstRun = true;
@@ -295,7 +296,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
         } catch (Exception e) {
             locationManager = null;
-            Log.d("MainCam", "Location service is not available");
+            Log.d("Main Cam", "Location service is not available");
         }
         if (locationManager != null) {
             this.updateSpeed(null);
@@ -318,13 +319,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             // Only start the service if it's not running
                             // If it's running then don't do anything
                             startCamera();
-                            // Request GPS Update
-                            if (ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainCam.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                                return;
-                            }
-                            if (locationManager != null) {
-                                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
-                            }
                             startScheduler(recordDuration);
                             startTimer();
                             serviceButton.setBackgroundResource(R.drawable.stop_record);
@@ -336,10 +330,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
                             // Stop recordingTimer
                             stopTimer();
                             recordTimer = null;
-                            // Remove GPS update
-                            if (locationManager != null) {
-                                locationManager.removeUpdates(MainCam.this);
-                            }
                             serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
                         }
                     }
@@ -351,27 +341,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
-                        if (isRecording) {
-                            // If Camera is running we stop everything first
-                            mCamera.stopPreview();
-                            stopCamera();
-                            stopScheduler();
-                            // Stop recordingTimer
-                            stopTimer();
-                            recordTimer = null;
-                            releaseCamera();
-                            preview.removeView(mPreview);
-                            mPreview = null;
-                            // Remove GPS update
-                            if (locationManager != null) {
-                                locationManager.removeUpdates(MainCam.this);
-                            }
-                            serviceButton.setBackgroundResource(android.R.drawable.presence_video_online);
-                        }else {
-                            mCamera.stopPreview();
-                            releaseCamera();
-                            preview.removeView(mPreview);
-                            mPreview = null;
+                        if(isRecording) {
+                            serviceButton.performClick();
                         }
                         Intent settingIntent = new Intent(MainCam.this, SettingsActivity.class);
                         startActivity(settingIntent);
@@ -438,51 +409,63 @@ public class MainCam extends Activity implements IBaseGpsListener {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d("Main Cam", "Main activity on resume !!!");
         // On resume you we update stuff again
         updateSetting();
-        if(mPreview == null) {
-            mCamera = getCameraInstance(cameraId);
-            mPreview = new CameraPreview(this, mCamera);
-        }
-        if(mPreview.getParent() == null) {
-            preview.addView(mPreview);
-        }
-        if(mpref.getBoolean("recordOnBackground",false)){
-            if(isRecording) {
-                // If it's recording on background we stop it
+
+        if(isRecording && (mpref.getBoolean("recordOnBackground",false))) {
+            if(CameraService.cameraService != null && CameraService.cameraService.isServiceRun) {
+                // If it' recording on background we stop it
                 // Make sure we remove the view before add it to
                 // Maincam preview
                 unbindService(mConnection);
             }
+        }else {
+            if (mCamera == null) {
+                mCamera = getCameraInstance(cameraId);
+            }
+            if (mPreview == null) {
+                preview.removeAllViewsInLayout();
+                mPreview = new CameraPreview(this, mCamera);
+            }
+            if (mPreview.getParent() == null) {
+                preview.addView(mPreview);
+            }
         }
+
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d("Main Cam", "Main activity on pause !!!");
         updateSetting();
         if(mpref.getBoolean("recordOnBackground",false)) {
             if (isRecording) {
-                stopCamera();
-                stopTimer();
-                stopScheduler();
-                isRecording = true;
-                if(mPreview != null) {
-                    preview.removeView(mPreview);
-                }
+                final ImageButton serviceButton = (ImageButton) findViewById(R.id.button_service);
+                serviceButton.performClick();
+                preview.removeAllViewsInLayout();
+                mCamera = getCameraInstance(cameraId);
+                mPreview = new CameraPreview(this, mCamera);
+                // If we are using background recording
+                // We start the service here
                 bindService(intentCameraService, mConnection, Context.BIND_AUTO_CREATE);
-                //startService(intentCameraService);
             }
-        }else if(isRecording){
-            stopCamera();
-            stopTimer();
-            stopScheduler();
         }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.d("Main Cam", "Main activity on stop !!!");
+        // Camera on stop.
+        // If it's recording we will save data and remove
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d("Main Cam", "Main activity on destroy !!!");
         // Unregister compass
         mSensorManager.unregisterListener(compassSensorListener);
         // Revert system setting change
@@ -499,6 +482,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 stopTimer();
             }
         }
+        if(CameraService.cameraService != null && CameraService.cameraService.isServiceRun) {
+            // If it' recording on background we stop it
+            // Make sure we remove the view before add it to
+            // Maincam preview
+            unbindService(mConnection);
+        }
         // Remove GPS update
         if (locationManager != null) {
             locationManager.removeUpdates(MainCam.this);
@@ -512,16 +501,15 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 ex.printStackTrace();
             }
         }
-        // Here we start nullify everything`
-        System.exit(0);
     }
+
 
     /**Call back for GPS Listener*/
     @Override
     public void onLocationChanged(Location location) {
         if (location != null) {
             float newSpeed = location.getSpeed();
-            if (MainCam.currentSpeed - currentSpeed > 20.00) {
+            if (MainCam.currentSpeed - newSpeed > 20.00) {
                 Intent intent = new Intent(Intent.ACTION_CALL);
                 intent.setData(Uri.parse("tel:" + emergencyNumber ));
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
@@ -683,7 +671,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         if (prepareVideoRecorder()) {
             // Camera is available and unlocked, MediaRecorder is prepared,
             // now you can start recording
-            Log.d("MainCam", "Camera start now");
+            Log.d("Main Cam", "Camera start now");
 
             mMediaRecorder.start();
             // inform the user that recording has started
@@ -697,25 +685,26 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
     }
 
-    public void releaseCamera(){
+    public void releaseCamera() {
         if (mCamera != null){
             mCamera.release();        // release the camera for other applications
             mCamera = null;
         }
     }
 
-    public static Camera getCameraInstance(int cameraId){
+    public static Camera getCameraInstance(int cameraId) {
         Camera c = null;
         try {
             c = Camera.open(cameraId); // attempt to get a Camera instance
         }
         catch (Exception e){
             // Camera is not available (in use or does not exist)
+            Log.d("Main Cam", "Can not get camera instance");
         }
         return c; // returns null if camera is unavailable
     }
 
-    public boolean prepareVideoRecorder(){
+    public boolean prepareVideoRecorder() {
         // Step 1: Unlock and set camera to MediaRecorder
         if(mCamera == null) {
             mCamera = getCameraInstance(cameraId);
@@ -762,7 +751,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
         return true;
     }
 
-    public void releaseMediaRecorder(){
+    public void releaseMediaRecorder() {
         if (mMediaRecorder != null) {
             mMediaRecorder.reset();   // clear recorder configuration
             mMediaRecorder.release(); // release the recorder object
@@ -784,9 +773,9 @@ public class MainCam extends Activity implements IBaseGpsListener {
     public File getOutputMediaFile(int type, int availableStorage){
         // To be safe, you should check that the SDCard is mounted
         // using Environment.getExternalStorageState() before doing this.
-        File mediaStorageDir = new File("/storage/sdcard0/carcam");
+        File mediaStorageDir = new File("/storage/sdcard0/CarCam");
         if(mpref.getBoolean("saveOnSDCard", false)) {
-            mediaStorageDir = new File("/storage/sdcard1/carcam");
+            mediaStorageDir = new File("/storage/sdcard1/CarCam");
         }
 
         // This location works best if you want the created images to be shared
@@ -842,15 +831,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 return 1;
             }        }else {
             return 0;
-        }
-    }
-
-    public static void switchCamera() {
-        if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK){
-            cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-        }
-        else {
-            cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
         }
     }
 

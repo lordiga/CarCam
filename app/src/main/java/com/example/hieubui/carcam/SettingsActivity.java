@@ -18,6 +18,7 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.preference.RingtonePreference;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.MenuItem;
 import android.support.v4.app.NavUtils;
 
@@ -38,7 +39,7 @@ public class SettingsActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedStateInstanceState) {
         super.onCreate(savedStateInstanceState);
-
+        Log.d("Setting Activity", "Setting activity on create !!!");
         // Display fragment as main content
         getFragmentManager().beginTransaction().replace(android.R.id.content, new SettingsFragment()).commit();
     }

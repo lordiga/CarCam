@@ -108,7 +108,7 @@ public class BatteryService extends Service implements IBaseGpsListener{
                                 timerHandler.postDelayed(timerRunnable,300000);
                             } catch (Exception e) {
                                 locationManager = null;
-                                Log.d("MainCam", "Location service is no available");
+                                Log.d("Main Cam", "Location service is not available");
                             }
                         }else {
                             // Phone doesn't support GPS
