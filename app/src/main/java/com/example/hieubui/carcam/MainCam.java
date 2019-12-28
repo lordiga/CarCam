@@ -16,6 +16,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationManager;
 import android.location.LocationProvider;
@@ -39,6 +40,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.w3c.dom.Text;
 
@@ -69,6 +71,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     /**GPS and speedometer object*/
     LocationManager locationManager;
     int GPSStatus;
+    int locationProviderStatus;
     /**Sound alarm object*/
     MediaPlayer mp;
     int alarmCount;
@@ -293,7 +296,12 @@ public class MainCam extends Activity implements IBaseGpsListener {
             return;
         }
         try {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
+            if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
+            }else {
+                Toast.makeText(MainCam,"Could not acquire GPS provider",Toast.LENGTH_LONG).show();
+                Log.d("Main Cam", "Location service is not available. Could not acquire GPS provider");
+            }
         } catch (Exception e) {
             locationManager = null;
             Log.d("Main Cam", "Location service is not available");
@@ -372,7 +380,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
                         Log.d("Battery Service in Main", "Not Charging");
                         if (locationManager != null) {
                             // MAke sure we don't get fooled by null location
-                            if ((MainCam.currentSpeed < 1)||(GPSStatus != LocationProvider.AVAILABLE)) {
+                            if ((MainCam.currentSpeed < 1)||(locationProviderStatus != LocationProvider.AVAILABLE)) {
                                 // Stop the camera
                                 Log.d("Battery Service in Main", "Stopping the application");
                                 finish();
@@ -507,9 +515,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
     /**Call back for GPS Listener*/
     @Override
     public void onLocationChanged(Location location) {
+        Log.d("GPS Service ","On location change !!!");
+        //Toast.makeText(MainCam,"GPS Service: Location On Change !!!",Toast.LENGTH_LONG).show();
         if (location != null) {
-            float newSpeed = location.getSpeed();
-            if (MainCam.currentSpeed - newSpeed > 20.00) {
+            int newSpeed = (int) location.getSpeed();
+            if ((GPSStatus == GpsStatus.GPS_EVENT_SATELLITE_STATUS) && (MainCam.currentSpeed != 0) && (newSpeed == 0) && (MainCam.currentSpeed - newSpeed > 20)) {
                 Intent intent = new Intent(Intent.ACTION_CALL);
                 intent.setData(Uri.parse("tel:" + emergencyNumber ));
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
@@ -517,31 +527,40 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 }
                 this.startActivity(intent);
             }
-            CLocation myLocation = new CLocation(location);
-            this.updateSpeed(myLocation);
+            this.updateSpeed(location);
         }
     }
 
     @Override
     public void onProviderDisabled(String provider) {
+        //Log.d("GPS Service ","Service disabled !!!");
+        //Toast.makeText(MainCam,"GPS Service: Service Disable !!!",Toast.LENGTH_LONG).show();
+        locationProviderStatus = LocationProvider.OUT_OF_SERVICE;
     }
 
     @Override
     public void onProviderEnabled(String provider) {
+        //Log.d("GPS Service ","Service enabled !!!");
+        //Toast.makeText(MainCam,"GPS Service: Service Enable !!!",Toast.LENGTH_LONG).show();
+        locationProviderStatus = LocationProvider.AVAILABLE;
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-
-        GPSStatus = status;
+        //Log.d("GPS Service ","Status Changed !!!");
+        //Toast.makeText(MainCam,"GPS Service: Status Changed !!!",Toast.LENGTH_LONG).show();
+        locationProviderStatus = status;
     }
 
     @Override
     public void onGpsStatusChanged(int event) {
+        //Log.d("GPS Service ","GPS Status Changed  !!!");
+        //Toast.makeText(MainCam,"GPS Service: GPS Status Changed !!!",Toast.LENGTH_LONG).show();
+        GPSStatus = event;
     }
 
     /**Public class method*/
-    public void updateSpeed(CLocation location) {
+    public void updateSpeed(Location location) {
         float nCurrentSpeed = 0;
         if(location != null)
         {

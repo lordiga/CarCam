@@ -52,7 +52,7 @@
 
     <string name="pref_title_record_on_background">Record On Background</string>
     <string name="pref_default_record_on_background">false</string>
-    <string name="pref_description_record_on_background">Keep recording while app in background</string>
+    <string name="pref_description_record_on_background">Keep recording while app in background(Require record on Preview ON)</string>
     <string name="pref_key_record_on_background">recordOnBackground</string>
 
     <string name="pref_title_save_on_sdcard">Save On SDCard</string>
