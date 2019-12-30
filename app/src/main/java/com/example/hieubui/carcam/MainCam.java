@@ -105,6 +105,8 @@ public class MainCam extends Activity implements IBaseGpsListener {
     boolean firstRun;
     static FrameLayout preview;
     static CameraPreview mPreview;
+    /**GPS Location Object*/
+    static CLocation myLocation;
     /**Camera Object*/
     static Camera mCamera;
     Camera.Parameters params;
@@ -162,8 +164,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
             public void onSensorChanged(SensorEvent sensorEvent) {
                 // If the sensor data is unreliable return
                 if (sensorEvent.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
-                    TextView direction = (TextView)findViewById(R.id.txtDirection);
-                    direction.setText("Direction Not Available");
                     return;
                 }
                 // Gets the value of the sensor that has been changed
@@ -198,19 +198,19 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     }
                     if((azimuth >= 0)&& (azimuth <= 25 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "° North");
+                        direction.setText("North");
                     }else if((azimuth > 25)&& (azimuth <= 65 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "° NorthEast");
+                        direction.setText("NorthEast");
                     }else if((azimuth > 65)&& (azimuth <= 115 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "° East");
+                        direction.setText("East");
                     }else if((azimuth > 115)&& (azimuth <= 155 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "° SouthEast");
+                        direction.setText("SouthEast");
                     }else if((azimuth > 155)&& (azimuth <= 205 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
-                        direction.setText(Math.round(azimuth) + "° South");
+                        direction.setText("South");
                     }else if((azimuth > 205)&& (azimuth <= 245 )) {
                         TextView direction = (TextView)findViewById(R.id.txtDirection);
                         direction.setText(Math.round(azimuth) + "° SouthWest");
@@ -291,25 +291,25 @@ public class MainCam extends Activity implements IBaseGpsListener {
         maxAlarmCount = 5;
 
         //Initiate GPS and Speedometer
-        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+        locationManager = (LocationManager) this.getSystemService(LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        try {
-            if(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
-            }else {
-                Toast.makeText(MainCam,"Could not acquire GPS provider",Toast.LENGTH_LONG).show();
-                Log.d("Main Cam", "Location service is not available. Could not acquire GPS provider");
+            Toast.makeText(MainCam,"Please grant permission to use GPS",Toast.LENGTH_LONG).show();
+        } else {
+            try {
+                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, MainCam.this);
+                } else {
+                    Toast.makeText(MainCam, "Could not acquire GPS provider", Toast.LENGTH_LONG).show();
+                    Log.d("Main Cam", "Location service is not available. Could not acquire GPS provider");
+                }
+            } catch (Exception e) {
+                locationManager = null;
+                Log.d("Main Cam", "Location service is not available");
             }
-        } catch (Exception e) {
-            locationManager = null;
-            Log.d("Main Cam", "Location service is not available");
+            if (locationManager != null) {
+                this.updateSpeed(null);
+            }
         }
-        if (locationManager != null) {
-            this.updateSpeed(null);
-        }
-
         //Initiate recorduration available storage
         try {
             recordDuration = Integer.parseInt(mpref.getString("recordDuration", "10"));
@@ -523,11 +523,13 @@ public class MainCam extends Activity implements IBaseGpsListener {
                 Intent intent = new Intent(Intent.ACTION_CALL);
                 intent.setData(Uri.parse("tel:" + emergencyNumber ));
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-                    return;
+                    Toast.makeText(MainCam,"Please grant permission to make call",Toast.LENGTH_LONG).show();
+                }else {
+                    this.startActivity(intent);
                 }
-                this.startActivity(intent);
             }
-            this.updateSpeed(location);
+            myLocation.updateLocation(location);
+            this.updateSpeed(myLocation);
         }
     }
 
@@ -560,7 +562,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     }
 
     /**Public class method*/
-    public void updateSpeed(Location location) {
+    public void updateSpeed(CLocation location) {
         float nCurrentSpeed = 0;
         if(location != null)
         {
@@ -666,7 +668,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     }
 
     public boolean isMyServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
         for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
             if (serviceClass.getName().equals(service.service.getClassName())) {
                 return true;

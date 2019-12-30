@@ -40,5 +40,8 @@ public class CLocation extends Location {
         return nSpeed;
     }
 
+    public void updateLocation (Location location) {
+        super.set(location);
+    }
 
 }
