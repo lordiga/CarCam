@@ -72,6 +72,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
     LocationManager locationManager;
     int GPSStatus;
     int locationProviderStatus;
+    static CLocation myLocation;
     /**Sound alarm object*/
     MediaPlayer mp;
     int alarmCount;
@@ -105,8 +106,6 @@ public class MainCam extends Activity implements IBaseGpsListener {
     boolean firstRun;
     static FrameLayout preview;
     static CameraPreview mPreview;
-    /**GPS Location Object*/
-    static CLocation myLocation;
     /**Camera Object*/
     static Camera mCamera;
     Camera.Parameters params;
@@ -528,7 +527,11 @@ public class MainCam extends Activity implements IBaseGpsListener {
                     this.startActivity(intent);
                 }
             }
-            myLocation.updateLocation(location);
+            if(myLocation == null) {
+                myLocation = new CLocation(location);
+            }else {
+                myLocation.updateLocation(location);
+            }
             this.updateSpeed(myLocation);
         }
     }
