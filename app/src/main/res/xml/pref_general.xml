@@ -2,34 +2,33 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <PreferenceCategory
         android:key="@string/pref_key_auto_setting"
-        android:title="@string/pref_title_auto_setting"
-        />
-    <SwitchPreference
+        android:title="@string/pref_title_auto_setting" />
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_auto_start"
         android:key="@string/pref_key_auto_start"
         android:summary="@string/pref_description_auto_start"
         android:title="@string/pref_title_auto_start" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_start_on_drive"
         android:key="@string/pref_key_start_on_drive"
         android:summary="@string/pref_description_start_on_drive"
         android:title="@string/pref_title_start_on_drive" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_keep_record_on_drive"
         android:key="@string/pref_key_keep_record_on_drive"
         android:summary="@string/pref_description_keep_record_on_drive"
         android:title="@string/pref_title_keep_record_on_drive" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_record_on_preview"
         android:key="@string/pref_key_record_on_preview"
         android:summary="@string/pref_description_record_on_preview"
         android:title="@string/pref_title_record_on_preview" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_open_on_startup"
         android:key="@string/pref_key_open_on_startup"
         android:summary="@string/pref_description_open_on_startup"
         android:title="@string/pref_title_open_on_startup" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_shutdown_on_close"
         android:key="@string/pref_key_shutdown_on_close"
         android:summary="@string/pref_description_shutdown_on_close"
@@ -39,7 +38,6 @@
         android:title="@string/pref_title_camera_setting"
         />
     <EditTextPreference
-        android:capitalize="words"
         android:defaultValue="@string/pref_default_record_time"
         android:inputType="textCapWords"
         android:key="@string/pref_key_keep_record_time"
@@ -48,28 +46,27 @@
         android:singleLine="true"
         android:summary="@string/pref_description_record_time"
         android:title="@string/pref_title_record_time" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_use_front_camera"
         android:key="@string/pref_key_use_front_camera"
         android:summary="@string/pref_description_use_front_camera"
         android:title="@string/pref_title_use_front_camera" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_keep_screen_on_value"
         android:key="@string/pref_key_keep_screen_on"
         android:summary="@string/pref_description_keep_screen_on"
         android:title="@string/pref_title_keep_screen_on" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_maximum_brightness_value"
         android:key="@string/pref_key_maximum_brightness"
         android:summary="@string/pref_description_maximum_brightness"
         android:title="@string/pref_title_maximum_brightness" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_record_on_background"
         android:key="@string/pref_key_record_on_background"
         android:summary="@string/pref_description_record_on_background"
         android:title="@string/pref_title_record_on_background" />
     <EditTextPreference
-        android:capitalize="words"
         android:defaultValue="@string/pref_default_available_storage"
         android:inputType="textCapWords"
         android:key="@string/pref_key_available_storage"
@@ -78,7 +75,7 @@
         android:singleLine="true"
         android:summary="@string/pref_description_available_storage"
         android:title="@string/pref_title_available_storage" />
-    <SwitchPreference
+    <com.example.hieubui.carcam.SwitchPref
         android:defaultValue="@string/pref_default_save_on_sdcard"
         android:key="@string/pref_key_save_on_sdcard"
         android:summary="@string/pref_description_save_on_sdcard"
@@ -88,7 +85,6 @@
         android:title="@string/pref_title_safety_setting"
         />
     <EditTextPreference
-        android:capitalize="words"
         android:defaultValue="@string/pref_default_max_speed"
         android:inputType="textCapWords"
         android:key="@string/pref_key_max_speed"
@@ -98,7 +94,6 @@
         android:summary="@string/pref_description_max_speed"
         android:title="@string/pref_title_max_speed"/>
     <EditTextPreference
-        android:capitalize="words"
         android:defaultValue="@string/pref_default_emergency_number"
         android:inputType="textCapWords"
         android:key="@string/pref_key_emergency_number"
