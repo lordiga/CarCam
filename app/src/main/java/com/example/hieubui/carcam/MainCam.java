@@ -815,7 +815,10 @@ public class MainCam extends Activity implements IBaseGpsListener {
         // Sorting Save directory and delete file if needed
         //sortSaveDir(mediaStorageDir,maxSize,recordDuration);
         // Check if we need to delete file
-        // Storage will save 700mb at least for free space
+        // Storage will save 1000mb at least for free space
+        if(availableStorage < 1000) {
+            availableStorage = 1000;
+        }
         while(getAvailableInternalMemorySize() < availableStorage) {
             // If get have less than 1Gb free
             // We will start delete files
@@ -914,7 +917,7 @@ public class MainCam extends Activity implements IBaseGpsListener {
 
         //Available Storage
         try {
-            availableStorage = Integer.parseInt(mpref.getString("availableStorage", "700"));
+            availableStorage = Integer.parseInt(mpref.getString("availableStorage", "1000"));
         } catch (NumberFormatException e) {
             availableStorage = 700;
         }
